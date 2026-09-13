@@ -1,5 +1,8 @@
 # Best TRV
 
+[![hacs_badge](https://img.shields.io/badge/HACS-Custom-41BDF5.svg)](https://github.com/hacs/integration)
+[![Open your Home Assistant instance and add this repository to HACS.](https://my.home-assistant.io/badges/hacs_repository.svg)](https://my.home-assistant.io/redirect/hacs_repository/?owner=lt-goldman&repository=best-trv&category=integration)
+
 A Home Assistant custom integration (`best_trv`) for hydronic
 setups where the **same** radiator/convector/TRV is fed either hot or cold
 water by a heat-pump changeover, and the TRV's own firmware only
@@ -90,14 +93,16 @@ disabled):
 ## Installing
 
 **Via HACS (recommended for iterating - no more manual copy/restart per
-change):** the repo is a private GitHub repo, so add it as a HACS custom
-repository: HACS -> the "..." menu (top right) -> **Custom repositories**
--> URL `https://github.com/lt-goldman/best-trv`, category **Integration**.
-A private repo needs a GitHub personal access token configured under
-HACS's own settings first (Settings -> Devices & services -> HACS ->
-Configure). Once added, install "Best TRV" from HACS like any other
-integration - updates then show up there too, instead of a manual copy
-each time a new version is tagged.
+change):** the repo is private, so a GitHub personal access token needs to
+be configured under HACS's own settings first (Settings -> Devices &
+services -> HACS -> Configure) before the button above will work. Then
+either click the **"Open your Home Assistant instance and add this
+repository to HACS"** badge above, or add it manually: HACS -> the "..."
+menu (top right) -> **Custom repositories** -> URL
+`https://github.com/lt-goldman/best-trv`, category **Integration**. Once
+added, install "Best TRV" from HACS like any other integration - updates
+then show up there too, instead of a manual copy each time a new version
+is tagged.
 
 **Manual (no HACS):**
 
