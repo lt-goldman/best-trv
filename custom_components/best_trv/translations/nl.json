@@ -65,7 +65,7 @@
       },
       "schedule_mon": {
         "title": "Schema maandag",
-        "description": "Tot nu toe: {slots_summary}. Vul het laatste (tijd, temperatuur)-paar in om een slot toe te voegen - de tijd staat standaard op een uur na het vorige slot. Zet \"Nog een slot toevoegen\" aan om door te gaan met uitbreiden in plaats van op te slaan; laat het uit om deze dag af te ronden. \"Kopiëren van\" vervangt het hele programma van deze dag door dat van een andere dag; \"Ook toepassen\" verspreidt het resultaat ook naar andere dagen.",
+        "description": "Tot nu toe: {slots_summary}. Vink \"Nog een slot toevoegen\" aan en verstuur om een nieuw slot toe te voegen (tijd een uur na het vorige) dat je daarna kunt aanpassen - er verschijnt niets totdat je dat doet. Laat het uit om deze dag af te ronden. \"Kopiëren van\" vervangt het hele programma van deze dag door dat van een andere dag; \"Ook toepassen\" verspreidt het resultaat ook naar andere dagen.",
         "data": {
           "copy_from_day": "Schema kopiëren van dag",
           "slot0_time": "Slot 1 tijd",
@@ -98,7 +98,7 @@
       },
       "schedule_tue": {
         "title": "Schema dinsdag",
-        "description": "Tot nu toe: {slots_summary}. Vul het laatste (tijd, temperatuur)-paar in om een slot toe te voegen - de tijd staat standaard op een uur na het vorige slot. Zet \"Nog een slot toevoegen\" aan om door te gaan met uitbreiden in plaats van op te slaan; laat het uit om deze dag af te ronden. \"Kopiëren van\" vervangt het hele programma van deze dag door dat van een andere dag; \"Ook toepassen\" verspreidt het resultaat ook naar andere dagen.",
+        "description": "Tot nu toe: {slots_summary}. Vink \"Nog een slot toevoegen\" aan en verstuur om een nieuw slot toe te voegen (tijd een uur na het vorige) dat je daarna kunt aanpassen - er verschijnt niets totdat je dat doet. Laat het uit om deze dag af te ronden. \"Kopiëren van\" vervangt het hele programma van deze dag door dat van een andere dag; \"Ook toepassen\" verspreidt het resultaat ook naar andere dagen.",
         "data": {
           "copy_from_day": "Schema kopiëren van dag",
           "slot0_time": "Slot 1 tijd",
@@ -131,7 +131,7 @@
       },
       "schedule_wed": {
         "title": "Schema woensdag",
-        "description": "Tot nu toe: {slots_summary}. Vul het laatste (tijd, temperatuur)-paar in om een slot toe te voegen - de tijd staat standaard op een uur na het vorige slot. Zet \"Nog een slot toevoegen\" aan om door te gaan met uitbreiden in plaats van op te slaan; laat het uit om deze dag af te ronden. \"Kopiëren van\" vervangt het hele programma van deze dag door dat van een andere dag; \"Ook toepassen\" verspreidt het resultaat ook naar andere dagen.",
+        "description": "Tot nu toe: {slots_summary}. Vink \"Nog een slot toevoegen\" aan en verstuur om een nieuw slot toe te voegen (tijd een uur na het vorige) dat je daarna kunt aanpassen - er verschijnt niets totdat je dat doet. Laat het uit om deze dag af te ronden. \"Kopiëren van\" vervangt het hele programma van deze dag door dat van een andere dag; \"Ook toepassen\" verspreidt het resultaat ook naar andere dagen.",
         "data": {
           "copy_from_day": "Schema kopiëren van dag",
           "slot0_time": "Slot 1 tijd",
@@ -164,7 +164,7 @@
       },
       "schedule_thu": {
         "title": "Schema donderdag",
-        "description": "Tot nu toe: {slots_summary}. Vul het laatste (tijd, temperatuur)-paar in om een slot toe te voegen - de tijd staat standaard op een uur na het vorige slot. Zet \"Nog een slot toevoegen\" aan om door te gaan met uitbreiden in plaats van op te slaan; laat het uit om deze dag af te ronden. \"Kopiëren van\" vervangt het hele programma van deze dag door dat van een andere dag; \"Ook toepassen\" verspreidt het resultaat ook naar andere dagen.",
+        "description": "Tot nu toe: {slots_summary}. Vink \"Nog een slot toevoegen\" aan en verstuur om een nieuw slot toe te voegen (tijd een uur na het vorige) dat je daarna kunt aanpassen - er verschijnt niets totdat je dat doet. Laat het uit om deze dag af te ronden. \"Kopiëren van\" vervangt het hele programma van deze dag door dat van een andere dag; \"Ook toepassen\" verspreidt het resultaat ook naar andere dagen.",
         "data": {
           "copy_from_day": "Schema kopiëren van dag",
           "slot0_time": "Slot 1 tijd",
@@ -197,7 +197,7 @@
       },
       "schedule_fri": {
         "title": "Schema vrijdag",
-        "description": "Tot nu toe: {slots_summary}. Vul het laatste (tijd, temperatuur)-paar in om een slot toe te voegen - de tijd staat standaard op een uur na het vorige slot. Zet \"Nog een slot toevoegen\" aan om door te gaan met uitbreiden in plaats van op te slaan; laat het uit om deze dag af te ronden. \"Kopiëren van\" vervangt het hele programma van deze dag door dat van een andere dag; \"Ook toepassen\" verspreidt het resultaat ook naar andere dagen.",
+        "description": "Tot nu toe: {slots_summary}. Vink \"Nog een slot toevoegen\" aan en verstuur om een nieuw slot toe te voegen (tijd een uur na het vorige) dat je daarna kunt aanpassen - er verschijnt niets totdat je dat doet. Laat het uit om deze dag af te ronden. \"Kopiëren van\" vervangt het hele programma van deze dag door dat van een andere dag; \"Ook toepassen\" verspreidt het resultaat ook naar andere dagen.",
         "data": {
           "copy_from_day": "Schema kopiëren van dag",
           "slot0_time": "Slot 1 tijd",
@@ -230,7 +230,7 @@
       },
       "schedule_sat": {
         "title": "Schema zaterdag",
-        "description": "Tot nu toe: {slots_summary}. Vul het laatste (tijd, temperatuur)-paar in om een slot toe te voegen - de tijd staat standaard op een uur na het vorige slot. Zet \"Nog een slot toevoegen\" aan om door te gaan met uitbreiden in plaats van op te slaan; laat het uit om deze dag af te ronden. \"Kopiëren van\" vervangt het hele programma van deze dag door dat van een andere dag; \"Ook toepassen\" verspreidt het resultaat ook naar andere dagen.",
+        "description": "Tot nu toe: {slots_summary}. Vink \"Nog een slot toevoegen\" aan en verstuur om een nieuw slot toe te voegen (tijd een uur na het vorige) dat je daarna kunt aanpassen - er verschijnt niets totdat je dat doet. Laat het uit om deze dag af te ronden. \"Kopiëren van\" vervangt het hele programma van deze dag door dat van een andere dag; \"Ook toepassen\" verspreidt het resultaat ook naar andere dagen.",
         "data": {
           "copy_from_day": "Schema kopiëren van dag",
           "slot0_time": "Slot 1 tijd",
@@ -263,7 +263,7 @@
       },
       "schedule_sun": {
         "title": "Schema zondag",
-        "description": "Tot nu toe: {slots_summary}. Vul het laatste (tijd, temperatuur)-paar in om een slot toe te voegen - de tijd staat standaard op een uur na het vorige slot. Zet \"Nog een slot toevoegen\" aan om door te gaan met uitbreiden in plaats van op te slaan; laat het uit om deze dag af te ronden. \"Kopiëren van\" vervangt het hele programma van deze dag door dat van een andere dag; \"Ook toepassen\" verspreidt het resultaat ook naar andere dagen.",
+        "description": "Tot nu toe: {slots_summary}. Vink \"Nog een slot toevoegen\" aan en verstuur om een nieuw slot toe te voegen (tijd een uur na het vorige) dat je daarna kunt aanpassen - er verschijnt niets totdat je dat doet. Laat het uit om deze dag af te ronden. \"Kopiëren van\" vervangt het hele programma van deze dag door dat van een andere dag; \"Ook toepassen\" verspreidt het resultaat ook naar andere dagen.",
         "data": {
           "copy_from_day": "Schema kopiëren van dag",
           "slot0_time": "Slot 1 tijd",

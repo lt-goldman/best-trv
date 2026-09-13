@@ -163,9 +163,11 @@ added, install "Best TRV" from HACS like any other integration.
 - **Scheduling is native, not a HACS dependency** - a custom integration
   depending on a separately-maintained HACS component breaks the moment
   either side ships an incompatible update. Slots per weekday grow one at
-  a time via an "add another slot" toggle (no fixed count, no re-typing a
-  block of empty rows) - a new slot's time defaults to an hour after the
-  previous one. A day left empty carries over the most recent configured
+  a time via an "add another slot" checkbox (no fixed count, and no
+  pre-shown empty row inviting confusion about whether it's real yet) -
+  checking it and submitting appends one new slot, defaulted to an hour
+  after the last one, as a genuine editable row. A day left empty carries
+  over the most recent configured
   day. Each day's step can also **pull** another day's whole program via
   "copy from", and **push** its own resulting program out to other days
   via "also apply to these days" in the same submission - setting up

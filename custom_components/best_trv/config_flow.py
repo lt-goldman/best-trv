@@ -306,17 +306,17 @@ class BestTRVOptionsFlow(config_entries.OptionsFlow):
     ) -> FlowResult:
         """One weekday's schedule, with dynamic slot growth and fan-out.
 
-        Existing slots stay editable (blank a slot's time to delete it).
-        One extra, always-present slot pair lets the user add one more -
-        its time defaults to an hour after the last slot, so entering a
-        run of slots means only adjusting temperature and nudging the
-        time forward, not typing each from scratch. "Add another slot"
-        re-shows this same step with the grown list instead of finalizing,
-        looping until the user leaves it off. "Copy from" pulls another
-        day's whole program in one shot; "push to" fans this day's
-        resulting program out to other days in the same submission -
-        setting up several identical days no longer means visiting each
-        one individually.
+        Only the already-confirmed slots are ever shown as fields (blank a
+        slot's time to delete it) - there is no extra, always-visible
+        "next slot" pair inviting confusion about whether it's real yet.
+        Checking "Add another slot" and submitting appends one new slot
+        (time an hour after the last one, temperature copied from it, both
+        then freely editable) and re-shows this same step with it as a
+        genuine row - nothing appears until that checkbox is actually used.
+        "Copy from" pulls another day's whole program in one shot; "push
+        to" fans this day's resulting program out to other days in the
+        same submission - setting up several identical days no longer
+        means visiting each one individually.
         """
         current = self._current_options()
 
@@ -327,9 +327,9 @@ class BestTRVOptionsFlow(config_entries.OptionsFlow):
             self._working_day_slots = list(current.get(CONF_SCHEDULE, {}).get(day_key, []))
 
         # How many (time, temperature) field pairs the form we're now
-        # responding to actually showed - one per existing slot, plus one
-        # trailing "add a slot" pair.
-        shown_count = len(self._working_day_slots) + 1
+        # responding to actually showed - exactly one per existing slot,
+        # no trailing extra.
+        shown_count = len(self._working_day_slots)
 
         if user_input is not None:
             copy_from = user_input.get("copy_from_day", _COPY_FROM_NONE)
@@ -350,10 +350,13 @@ class BestTRVOptionsFlow(config_entries.OptionsFlow):
                     and user_input.get(f"slot{i}_temperature") is not None
                 ]
 
-            keep_adding = user_input.get("add_another_slot", False)
-            still_room = len(self._working_day_slots) < MAX_SCHEDULE_SLOTS_PER_DAY
-            if copy_from == _COPY_FROM_NONE and keep_adding and still_room:
-                return self._show_schedule_day_form(day_key)
+                if user_input.get("add_another_slot", False) and len(
+                    self._working_day_slots
+                ) < MAX_SCHEDULE_SLOTS_PER_DAY:
+                    self._working_day_slots.append(
+                        self._suggest_next_slot(current)
+                    )
+                    return self._show_schedule_day_form(day_key)
 
             schedule = dict(current.get(CONF_SCHEDULE, {}))
             schedule[day_key] = list(self._working_day_slots)
@@ -364,9 +367,24 @@ class BestTRVOptionsFlow(config_entries.OptionsFlow):
 
         return self._show_schedule_day_form(day_key)
 
+    def _suggest_next_slot(self, current: dict[str, Any]) -> dict[str, Any]:
+        """A starting point for a freshly-appended slot: an hour after the
+        previous one (wrapping midnight), same temperature as it - so
+        adding a run of slots is mostly nudging the time forward rather
+        than typing each pair from scratch. Falls back to midnight and the
+        room's own configured heat-mode minimum for the very first slot."""
+        slots = self._working_day_slots
+        if slots:
+            last_time = parse_time_string(slots[-1]["time"])
+            suggested_time = time_of_day((last_time.hour + 1) % 24, last_time.minute)
+            suggested_temp = slots[-1]["temperature"]
+        else:
+            suggested_time = time_of_day(0, 0)
+            suggested_temp = current.get(CONF_HEAT_MIN_TEMP, 20.0)
+        return {"time": suggested_time.isoformat(), "temperature": suggested_temp}
+
     def _show_schedule_day_form(self, day_key: str) -> FlowResult:
         slots = self._working_day_slots
-        total_fields = len(slots) + 1  # existing slots + one to add
 
         schema_dict: dict[Any, Any] = {
             vol.Optional("copy_from_day", default=_COPY_FROM_NONE): selector.SelectSelector(
@@ -384,25 +402,16 @@ class BestTRVOptionsFlow(config_entries.OptionsFlow):
             ),
         }
 
-        for i in range(total_fields):
-            if i < len(slots):
-                time_key = vol.Optional(f"slot{i}_time", default=slots[i]["time"])
-                temp_key = vol.Optional(f"slot{i}_temperature", default=slots[i]["temperature"])
-            else:
-                # The trailing "add a slot" pair: suggest an hour after the
-                # last confirmed slot so a run of slots is mostly nudging
-                # forward, not typing each time from a blank field.
-                if slots:
-                    last_time = parse_time_string(slots[-1]["time"])
-                    suggested = time_of_day((last_time.hour + 1) % 24, last_time.minute).isoformat()
-                    time_key = vol.Optional(f"slot{i}_time", default=suggested)
-                else:
-                    time_key = vol.Optional(f"slot{i}_time")
-                temp_key = vol.Optional(f"slot{i}_temperature")
-            schema_dict[time_key] = selector.TimeSelector()
-            schema_dict[temp_key] = vol.Coerce(float)
+        for i, slot in enumerate(slots):
+            schema_dict[vol.Optional(f"slot{i}_time", default=slot["time"])] = (
+                selector.TimeSelector()
+            )
+            schema_dict[vol.Optional(f"slot{i}_temperature", default=slot["temperature"])] = (
+                vol.Coerce(float)
+            )
 
-        schema_dict[vol.Optional("add_another_slot", default=False)] = bool
+        if len(slots) < MAX_SCHEDULE_SLOTS_PER_DAY:
+            schema_dict[vol.Optional("add_another_slot", default=False)] = bool
         schema_dict[vol.Optional("push_to_days", default=[])] = selector.SelectSelector(
             selector.SelectSelectorConfig(
                 options=[

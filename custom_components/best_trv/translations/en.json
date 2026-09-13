@@ -65,7 +65,7 @@
       },
       "schedule_mon": {
         "title": "Monday schedule",
-        "description": "So far: {slots_summary}. Fill in the last (time, temperature) pair to add a slot - its time defaults to an hour after the previous one. Turn on \"Add another slot\" to keep growing the list instead of saving; leave it off to finalize this day. \"Copy from\" replaces this day's whole program with another day's; \"Also apply\" fans the result out to other days too.",
+        "description": "So far: {slots_summary}. Check \"Add another slot\" and submit to append a new slot (time an hour after the last one) that you can then adjust - nothing appears until you do that. Leave it unchecked to finalize this day. \"Copy from\" replaces this day's whole program with another day's; \"Also apply\" fans the result out to other days too.",
         "data": {
           "copy_from_day": "Copy schedule from day",
           "slot0_time": "Slot 1 time",
@@ -98,7 +98,7 @@
       },
       "schedule_tue": {
         "title": "Tuesday schedule",
-        "description": "So far: {slots_summary}. Fill in the last (time, temperature) pair to add a slot - its time defaults to an hour after the previous one. Turn on \"Add another slot\" to keep growing the list instead of saving; leave it off to finalize this day. \"Copy from\" replaces this day's whole program with another day's; \"Also apply\" fans the result out to other days too.",
+        "description": "So far: {slots_summary}. Check \"Add another slot\" and submit to append a new slot (time an hour after the last one) that you can then adjust - nothing appears until you do that. Leave it unchecked to finalize this day. \"Copy from\" replaces this day's whole program with another day's; \"Also apply\" fans the result out to other days too.",
         "data": {
           "copy_from_day": "Copy schedule from day",
           "slot0_time": "Slot 1 time",
@@ -131,7 +131,7 @@
       },
       "schedule_wed": {
         "title": "Wednesday schedule",
-        "description": "So far: {slots_summary}. Fill in the last (time, temperature) pair to add a slot - its time defaults to an hour after the previous one. Turn on \"Add another slot\" to keep growing the list instead of saving; leave it off to finalize this day. \"Copy from\" replaces this day's whole program with another day's; \"Also apply\" fans the result out to other days too.",
+        "description": "So far: {slots_summary}. Check \"Add another slot\" and submit to append a new slot (time an hour after the last one) that you can then adjust - nothing appears until you do that. Leave it unchecked to finalize this day. \"Copy from\" replaces this day's whole program with another day's; \"Also apply\" fans the result out to other days too.",
         "data": {
           "copy_from_day": "Copy schedule from day",
           "slot0_time": "Slot 1 time",
@@ -164,7 +164,7 @@
       },
       "schedule_thu": {
         "title": "Thursday schedule",
-        "description": "So far: {slots_summary}. Fill in the last (time, temperature) pair to add a slot - its time defaults to an hour after the previous one. Turn on \"Add another slot\" to keep growing the list instead of saving; leave it off to finalize this day. \"Copy from\" replaces this day's whole program with another day's; \"Also apply\" fans the result out to other days too.",
+        "description": "So far: {slots_summary}. Check \"Add another slot\" and submit to append a new slot (time an hour after the last one) that you can then adjust - nothing appears until you do that. Leave it unchecked to finalize this day. \"Copy from\" replaces this day's whole program with another day's; \"Also apply\" fans the result out to other days too.",
         "data": {
           "copy_from_day": "Copy schedule from day",
           "slot0_time": "Slot 1 time",
@@ -197,7 +197,7 @@
       },
       "schedule_fri": {
         "title": "Friday schedule",
-        "description": "So far: {slots_summary}. Fill in the last (time, temperature) pair to add a slot - its time defaults to an hour after the previous one. Turn on \"Add another slot\" to keep growing the list instead of saving; leave it off to finalize this day. \"Copy from\" replaces this day's whole program with another day's; \"Also apply\" fans the result out to other days too.",
+        "description": "So far: {slots_summary}. Check \"Add another slot\" and submit to append a new slot (time an hour after the last one) that you can then adjust - nothing appears until you do that. Leave it unchecked to finalize this day. \"Copy from\" replaces this day's whole program with another day's; \"Also apply\" fans the result out to other days too.",
         "data": {
           "copy_from_day": "Copy schedule from day",
           "slot0_time": "Slot 1 time",
@@ -230,7 +230,7 @@
       },
       "schedule_sat": {
         "title": "Saturday schedule",
-        "description": "So far: {slots_summary}. Fill in the last (time, temperature) pair to add a slot - its time defaults to an hour after the previous one. Turn on \"Add another slot\" to keep growing the list instead of saving; leave it off to finalize this day. \"Copy from\" replaces this day's whole program with another day's; \"Also apply\" fans the result out to other days too.",
+        "description": "So far: {slots_summary}. Check \"Add another slot\" and submit to append a new slot (time an hour after the last one) that you can then adjust - nothing appears until you do that. Leave it unchecked to finalize this day. \"Copy from\" replaces this day's whole program with another day's; \"Also apply\" fans the result out to other days too.",
         "data": {
           "copy_from_day": "Copy schedule from day",
           "slot0_time": "Slot 1 time",
@@ -263,7 +263,7 @@
       },
       "schedule_sun": {
         "title": "Sunday schedule",
-        "description": "So far: {slots_summary}. Fill in the last (time, temperature) pair to add a slot - its time defaults to an hour after the previous one. Turn on \"Add another slot\" to keep growing the list instead of saving; leave it off to finalize this day. \"Copy from\" replaces this day's whole program with another day's; \"Also apply\" fans the result out to other days too.",
+        "description": "So far: {slots_summary}. Check \"Add another slot\" and submit to append a new slot (time an hour after the last one) that you can then adjust - nothing appears until you do that. Leave it unchecked to finalize this day. \"Copy from\" replaces this day's whole program with another day's; \"Also apply\" fans the result out to other days too.",
         "data": {
           "copy_from_day": "Copy schedule from day",
           "slot0_time": "Slot 1 time",
