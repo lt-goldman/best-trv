@@ -1,5 +1,6 @@
 __pycache__/
 *.pyc
+tools/icon_preview.png
 .pytest_cache/
 .ruff_cache/
 .venv/

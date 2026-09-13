@@ -208,3 +208,11 @@ vX.Y.Z`, `git push origin master --tags`, then `gh release create vX.Y.Z`
 (HACS tracks GitHub Releases, not bare tags, for update notifications).
 The `GitHub release` badge above is live (shields.io queries the public
 repo directly) so it updates on its own - nothing to edit by hand.
+
+**Brand icon:** `custom_components/best_trv/brand/{icon,icon@2x,logo,logo@2x}.png`
+ships inside the integration itself (Home Assistant 2026.3.0+ serves
+local brand images directly - no PR to the external
+[home-assistant/brands](https://github.com/home-assistant/brands) repo
+needed, and that repo now auto-closes custom-integration PRs anyway).
+Regenerate with `python tools/generate_icon.py` (needs `pip install
+pillow numpy`, dev-only, not a runtime dependency of the integration).
