@@ -1,0 +1,166 @@
+{
+  "config": {
+    "step": {
+      "user": {
+        "title": "Best TRV: new room",
+        "description": "One entry controls one room. Pick the physical TRV(s), the real room-temperature sensor, and the sensor that tells you the heat pump loop is currently cooling.",
+        "data": {
+          "name": "Room name",
+          "trv_climate_entities": "Physical TRV(s)",
+          "room_sensor_entity_id": "Room temperature sensor",
+          "changeover_sensor_entity_id": "Heating/cooling changeover sensor",
+          "cooling_active_value": "Sensor state that means \"cooling active\""
+        }
+      },
+      "trv_mapping": {
+        "title": "Link each TRV's auxiliary entities",
+        "description": "For each of the {trv_count} selected TRV(s), pick the number entity Zigbee2MQTT created for its external_temperature_input, and the select entity for its sensor source. Suggested defaults are pre-filled where a matching entity was found.",
+        "data": {}
+      }
+    },
+    "error": {
+      "no_trvs_selected": "Select at least one TRV."
+    },
+    "abort": {
+      "already_configured": "This room is already configured."
+    }
+  },
+  "options": {
+    "step": {
+      "init": {
+        "title": "Best TRV: configure",
+        "menu_options": {
+          "tuning": "Tuning",
+          "schedule_toggle": "Schedule on/off",
+          "schedule_mon": "Monday",
+          "schedule_tue": "Tuesday",
+          "schedule_wed": "Wednesday",
+          "schedule_thu": "Thursday",
+          "schedule_fri": "Friday",
+          "schedule_sat": "Saturday",
+          "schedule_sun": "Sunday"
+        }
+      },
+      "tuning": {
+        "title": "Best TRV: tuning",
+        "data": {
+          "heat_min_temp": "Minimum heating setpoint",
+          "heat_max_temp": "Maximum heating setpoint",
+          "heat_step": "Heating setpoint step",
+          "cool_min_temp": "Minimum cooling setpoint",
+          "cool_max_temp": "Maximum cooling setpoint",
+          "cool_step": "Cooling setpoint step",
+          "min_delta": "Minimum change before re-sending the feed temperature (°C)",
+          "forced_refresh_seconds": "Force a refresh at least every (seconds)",
+          "debounce_seconds": "Changeover debounce (seconds)",
+          "cooling_active_value": "Sensor state that means \"cooling active\""
+        }
+      },
+      "schedule_toggle": {
+        "title": "Best TRV: schedule on/off",
+        "description": "When on, the schedule sets the target temperature automatically at each configured time. Adjusting the temperature by hand between two scheduled times is not overwritten until the next scheduled change.",
+        "data": {
+          "schedule_enabled": "Schedule enabled"
+        }
+      },
+      "schedule_mon": {
+        "title": "Monday schedule",
+        "description": "Up to 4 (time, temperature) slots. Leave a slot's time empty to not use it. Applies whichever slot's time has most recently passed; empty days carry over the last slot from the most recent earlier day that has one.",
+        "data": {
+          "slot0_time": "Slot 1 time",
+          "slot0_temperature": "Slot 1 temperature",
+          "slot1_time": "Slot 2 time",
+          "slot1_temperature": "Slot 2 temperature",
+          "slot2_time": "Slot 3 time",
+          "slot2_temperature": "Slot 3 temperature",
+          "slot3_time": "Slot 4 time",
+          "slot3_temperature": "Slot 4 temperature"
+        }
+      },
+      "schedule_tue": {
+        "title": "Tuesday schedule",
+        "description": "Up to 4 (time, temperature) slots. Leave a slot's time empty to not use it.",
+        "data": {
+          "slot0_time": "Slot 1 time",
+          "slot0_temperature": "Slot 1 temperature",
+          "slot1_time": "Slot 2 time",
+          "slot1_temperature": "Slot 2 temperature",
+          "slot2_time": "Slot 3 time",
+          "slot2_temperature": "Slot 3 temperature",
+          "slot3_time": "Slot 4 time",
+          "slot3_temperature": "Slot 4 temperature"
+        }
+      },
+      "schedule_wed": {
+        "title": "Wednesday schedule",
+        "description": "Up to 4 (time, temperature) slots. Leave a slot's time empty to not use it.",
+        "data": {
+          "slot0_time": "Slot 1 time",
+          "slot0_temperature": "Slot 1 temperature",
+          "slot1_time": "Slot 2 time",
+          "slot1_temperature": "Slot 2 temperature",
+          "slot2_time": "Slot 3 time",
+          "slot2_temperature": "Slot 3 temperature",
+          "slot3_time": "Slot 4 time",
+          "slot3_temperature": "Slot 4 temperature"
+        }
+      },
+      "schedule_thu": {
+        "title": "Thursday schedule",
+        "description": "Up to 4 (time, temperature) slots. Leave a slot's time empty to not use it.",
+        "data": {
+          "slot0_time": "Slot 1 time",
+          "slot0_temperature": "Slot 1 temperature",
+          "slot1_time": "Slot 2 time",
+          "slot1_temperature": "Slot 2 temperature",
+          "slot2_time": "Slot 3 time",
+          "slot2_temperature": "Slot 3 temperature",
+          "slot3_time": "Slot 4 time",
+          "slot3_temperature": "Slot 4 temperature"
+        }
+      },
+      "schedule_fri": {
+        "title": "Friday schedule",
+        "description": "Up to 4 (time, temperature) slots. Leave a slot's time empty to not use it.",
+        "data": {
+          "slot0_time": "Slot 1 time",
+          "slot0_temperature": "Slot 1 temperature",
+          "slot1_time": "Slot 2 time",
+          "slot1_temperature": "Slot 2 temperature",
+          "slot2_time": "Slot 3 time",
+          "slot2_temperature": "Slot 3 temperature",
+          "slot3_time": "Slot 4 time",
+          "slot3_temperature": "Slot 4 temperature"
+        }
+      },
+      "schedule_sat": {
+        "title": "Saturday schedule",
+        "description": "Up to 4 (time, temperature) slots. Leave a slot's time empty to not use it.",
+        "data": {
+          "slot0_time": "Slot 1 time",
+          "slot0_temperature": "Slot 1 temperature",
+          "slot1_time": "Slot 2 time",
+          "slot1_temperature": "Slot 2 temperature",
+          "slot2_time": "Slot 3 time",
+          "slot2_temperature": "Slot 3 temperature",
+          "slot3_time": "Slot 4 time",
+          "slot3_temperature": "Slot 4 temperature"
+        }
+      },
+      "schedule_sun": {
+        "title": "Sunday schedule",
+        "description": "Up to 4 (time, temperature) slots. Leave a slot's time empty to not use it.",
+        "data": {
+          "slot0_time": "Slot 1 time",
+          "slot0_temperature": "Slot 1 temperature",
+          "slot1_time": "Slot 2 time",
+          "slot1_temperature": "Slot 2 temperature",
+          "slot2_time": "Slot 3 time",
+          "slot2_temperature": "Slot 3 temperature",
+          "slot3_time": "Slot 4 time",
+          "slot3_temperature": "Slot 4 temperature"
+        }
+      }
+    }
+  }
+}
