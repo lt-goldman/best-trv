@@ -1,7 +1,14 @@
 # Best TRV
 
 [![hacs_badge](https://img.shields.io/badge/HACS-Custom-41BDF5.svg)](https://github.com/hacs/integration)
+[![Version](https://img.shields.io/badge/version-0.3.3-blue.svg)](https://github.com/lt-goldman/best-trv/releases)
+[![Home Assistant](https://img.shields.io/badge/home%20assistant-2024.2.0%2B-41BDF5.svg)](https://www.home-assistant.io/)
 [![Open your Home Assistant instance and add this repository to HACS.](https://my.home-assistant.io/badges/hacs_repository.svg)](https://my.home-assistant.io/redirect/hacs_repository/?owner=lt-goldman&repository=best-trv&category=integration)
+
+> No public downloads/build/translation badges here on purpose - those
+> come from a public GitHub Actions/Crowdin/HACS-analytics setup this
+> private, personal repo doesn't have. Faking them with static images
+> would just be misleading.
 
 A Home Assistant custom integration (`best_trv`) for hydronic
 setups where the **same** radiator/convector/TRV is fed either hot or cold
@@ -238,7 +245,16 @@ ruff check custom_components/ tests/
 
 `controller.py` has zero Home Assistant dependency, so `tests/` runs
 without a Home Assistant install. `climate.py`, `config_flow.py` and
-`adapters/aqara_e1_z2m.py` were checked with `ruff --select=F,E9` for
-syntax/undefined-name errors, but have **not** been exercised against a
-running Home Assistant instance yet - that's the next verification step
-before relying on this for real heating/cooling control.
+`adapters/aqara_e1_z2m.py` are checked with `ruff --select=F,E9` for
+syntax/undefined-name errors, and have since been verified against a real
+running installation (setpoint-sync and `sensor: external` selection both
+confirmed via the Aqara's own Zigbee2MQTT state payload) - see the git
+history for what that surfaced and fixed (the availability deadlock in
+particular).
+
+**Releasing:** bump `version` in `manifest.json`, commit, `git tag -a
+vX.Y.Z`, `git push origin master --tags`, then `gh release create vX.Y.Z`
+(HACS tracks GitHub Releases, not bare tags, for update notifications).
+Keep the `Version` badge above in sync with the same number - it's a
+static badge (the repo being private rules out a live shields.io query),
+so it only updates when edited by hand.
