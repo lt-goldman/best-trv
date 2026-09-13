@@ -63,9 +63,134 @@
           "schedule_enabled": "Schema actief"
         }
       },
-      "day_menu": {
-        "title": "Schema {day}",
-        "description": "Tot nu toe: {slots_summary}. Wordt ook toegepast op: {push_summary}. Kies een slot om te bewerken, \"Nog een slot toevoegen\" om er meteen één toe te voegen (geen formulier - het wordt direct toegevoegd, standaard een uur na het laatste slot), \"Schema kopiëren van een andere dag\" om het hele programma van deze dag in één keer te vervangen, of \"Ook toepassen op andere dagen\" om het resultaat te verspreiden zodra je op Klaar drukt. Er wordt pas iets opgeslagen bij Klaar.",
+      "day_menu_mon": {
+        "title": "Schema maandag",
+        "menu_options": {
+          "edit_slot_0": "Slot 1 bewerken",
+          "edit_slot_1": "Slot 2 bewerken",
+          "edit_slot_2": "Slot 3 bewerken",
+          "edit_slot_3": "Slot 4 bewerken",
+          "edit_slot_4": "Slot 5 bewerken",
+          "edit_slot_5": "Slot 6 bewerken",
+          "edit_slot_6": "Slot 7 bewerken",
+          "edit_slot_7": "Slot 8 bewerken",
+          "edit_slot_8": "Slot 9 bewerken",
+          "edit_slot_9": "Slot 10 bewerken",
+          "edit_slot_10": "Slot 11 bewerken",
+          "edit_slot_11": "Slot 12 bewerken",
+          "add_slot": "Nog een slot toevoegen",
+          "copy_day": "Schema kopiëren van een andere dag",
+          "push_days": "Ook toepassen op andere dagen",
+          "day_done": "Klaar"
+        }
+      },
+      "day_menu_tue": {
+        "title": "Schema dinsdag",
+        "menu_options": {
+          "edit_slot_0": "Slot 1 bewerken",
+          "edit_slot_1": "Slot 2 bewerken",
+          "edit_slot_2": "Slot 3 bewerken",
+          "edit_slot_3": "Slot 4 bewerken",
+          "edit_slot_4": "Slot 5 bewerken",
+          "edit_slot_5": "Slot 6 bewerken",
+          "edit_slot_6": "Slot 7 bewerken",
+          "edit_slot_7": "Slot 8 bewerken",
+          "edit_slot_8": "Slot 9 bewerken",
+          "edit_slot_9": "Slot 10 bewerken",
+          "edit_slot_10": "Slot 11 bewerken",
+          "edit_slot_11": "Slot 12 bewerken",
+          "add_slot": "Nog een slot toevoegen",
+          "copy_day": "Schema kopiëren van een andere dag",
+          "push_days": "Ook toepassen op andere dagen",
+          "day_done": "Klaar"
+        }
+      },
+      "day_menu_wed": {
+        "title": "Schema woensdag",
+        "menu_options": {
+          "edit_slot_0": "Slot 1 bewerken",
+          "edit_slot_1": "Slot 2 bewerken",
+          "edit_slot_2": "Slot 3 bewerken",
+          "edit_slot_3": "Slot 4 bewerken",
+          "edit_slot_4": "Slot 5 bewerken",
+          "edit_slot_5": "Slot 6 bewerken",
+          "edit_slot_6": "Slot 7 bewerken",
+          "edit_slot_7": "Slot 8 bewerken",
+          "edit_slot_8": "Slot 9 bewerken",
+          "edit_slot_9": "Slot 10 bewerken",
+          "edit_slot_10": "Slot 11 bewerken",
+          "edit_slot_11": "Slot 12 bewerken",
+          "add_slot": "Nog een slot toevoegen",
+          "copy_day": "Schema kopiëren van een andere dag",
+          "push_days": "Ook toepassen op andere dagen",
+          "day_done": "Klaar"
+        }
+      },
+      "day_menu_thu": {
+        "title": "Schema donderdag",
+        "menu_options": {
+          "edit_slot_0": "Slot 1 bewerken",
+          "edit_slot_1": "Slot 2 bewerken",
+          "edit_slot_2": "Slot 3 bewerken",
+          "edit_slot_3": "Slot 4 bewerken",
+          "edit_slot_4": "Slot 5 bewerken",
+          "edit_slot_5": "Slot 6 bewerken",
+          "edit_slot_6": "Slot 7 bewerken",
+          "edit_slot_7": "Slot 8 bewerken",
+          "edit_slot_8": "Slot 9 bewerken",
+          "edit_slot_9": "Slot 10 bewerken",
+          "edit_slot_10": "Slot 11 bewerken",
+          "edit_slot_11": "Slot 12 bewerken",
+          "add_slot": "Nog een slot toevoegen",
+          "copy_day": "Schema kopiëren van een andere dag",
+          "push_days": "Ook toepassen op andere dagen",
+          "day_done": "Klaar"
+        }
+      },
+      "day_menu_fri": {
+        "title": "Schema vrijdag",
+        "menu_options": {
+          "edit_slot_0": "Slot 1 bewerken",
+          "edit_slot_1": "Slot 2 bewerken",
+          "edit_slot_2": "Slot 3 bewerken",
+          "edit_slot_3": "Slot 4 bewerken",
+          "edit_slot_4": "Slot 5 bewerken",
+          "edit_slot_5": "Slot 6 bewerken",
+          "edit_slot_6": "Slot 7 bewerken",
+          "edit_slot_7": "Slot 8 bewerken",
+          "edit_slot_8": "Slot 9 bewerken",
+          "edit_slot_9": "Slot 10 bewerken",
+          "edit_slot_10": "Slot 11 bewerken",
+          "edit_slot_11": "Slot 12 bewerken",
+          "add_slot": "Nog een slot toevoegen",
+          "copy_day": "Schema kopiëren van een andere dag",
+          "push_days": "Ook toepassen op andere dagen",
+          "day_done": "Klaar"
+        }
+      },
+      "day_menu_sat": {
+        "title": "Schema zaterdag",
+        "menu_options": {
+          "edit_slot_0": "Slot 1 bewerken",
+          "edit_slot_1": "Slot 2 bewerken",
+          "edit_slot_2": "Slot 3 bewerken",
+          "edit_slot_3": "Slot 4 bewerken",
+          "edit_slot_4": "Slot 5 bewerken",
+          "edit_slot_5": "Slot 6 bewerken",
+          "edit_slot_6": "Slot 7 bewerken",
+          "edit_slot_7": "Slot 8 bewerken",
+          "edit_slot_8": "Slot 9 bewerken",
+          "edit_slot_9": "Slot 10 bewerken",
+          "edit_slot_10": "Slot 11 bewerken",
+          "edit_slot_11": "Slot 12 bewerken",
+          "add_slot": "Nog een slot toevoegen",
+          "copy_day": "Schema kopiëren van een andere dag",
+          "push_days": "Ook toepassen op andere dagen",
+          "day_done": "Klaar"
+        }
+      },
+      "day_menu_sun": {
+        "title": "Schema zondag",
         "menu_options": {
           "edit_slot_0": "Slot 1 bewerken",
           "edit_slot_1": "Slot 2 bewerken",

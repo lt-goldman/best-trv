@@ -63,9 +63,134 @@
           "schedule_enabled": "Schedule enabled"
         }
       },
-      "day_menu": {
-        "title": "{day} schedule",
-        "description": "So far: {slots_summary}. Also pushing to: {push_summary}. Pick a slot to edit it, \"Add another slot\" to append one immediately (no form - it's added right away, defaulted to an hour after the last slot), \"Copy schedule from another day\" to replace this day's whole program in one shot, or \"Also apply to other days\" to fan the result out once you hit Done. Nothing is written back until Done.",
+      "day_menu_mon": {
+        "title": "Monday schedule",
+        "menu_options": {
+          "edit_slot_0": "Edit slot 1",
+          "edit_slot_1": "Edit slot 2",
+          "edit_slot_2": "Edit slot 3",
+          "edit_slot_3": "Edit slot 4",
+          "edit_slot_4": "Edit slot 5",
+          "edit_slot_5": "Edit slot 6",
+          "edit_slot_6": "Edit slot 7",
+          "edit_slot_7": "Edit slot 8",
+          "edit_slot_8": "Edit slot 9",
+          "edit_slot_9": "Edit slot 10",
+          "edit_slot_10": "Edit slot 11",
+          "edit_slot_11": "Edit slot 12",
+          "add_slot": "Add another slot",
+          "copy_day": "Copy schedule from another day",
+          "push_days": "Also apply to other days",
+          "day_done": "Done"
+        }
+      },
+      "day_menu_tue": {
+        "title": "Tuesday schedule",
+        "menu_options": {
+          "edit_slot_0": "Edit slot 1",
+          "edit_slot_1": "Edit slot 2",
+          "edit_slot_2": "Edit slot 3",
+          "edit_slot_3": "Edit slot 4",
+          "edit_slot_4": "Edit slot 5",
+          "edit_slot_5": "Edit slot 6",
+          "edit_slot_6": "Edit slot 7",
+          "edit_slot_7": "Edit slot 8",
+          "edit_slot_8": "Edit slot 9",
+          "edit_slot_9": "Edit slot 10",
+          "edit_slot_10": "Edit slot 11",
+          "edit_slot_11": "Edit slot 12",
+          "add_slot": "Add another slot",
+          "copy_day": "Copy schedule from another day",
+          "push_days": "Also apply to other days",
+          "day_done": "Done"
+        }
+      },
+      "day_menu_wed": {
+        "title": "Wednesday schedule",
+        "menu_options": {
+          "edit_slot_0": "Edit slot 1",
+          "edit_slot_1": "Edit slot 2",
+          "edit_slot_2": "Edit slot 3",
+          "edit_slot_3": "Edit slot 4",
+          "edit_slot_4": "Edit slot 5",
+          "edit_slot_5": "Edit slot 6",
+          "edit_slot_6": "Edit slot 7",
+          "edit_slot_7": "Edit slot 8",
+          "edit_slot_8": "Edit slot 9",
+          "edit_slot_9": "Edit slot 10",
+          "edit_slot_10": "Edit slot 11",
+          "edit_slot_11": "Edit slot 12",
+          "add_slot": "Add another slot",
+          "copy_day": "Copy schedule from another day",
+          "push_days": "Also apply to other days",
+          "day_done": "Done"
+        }
+      },
+      "day_menu_thu": {
+        "title": "Thursday schedule",
+        "menu_options": {
+          "edit_slot_0": "Edit slot 1",
+          "edit_slot_1": "Edit slot 2",
+          "edit_slot_2": "Edit slot 3",
+          "edit_slot_3": "Edit slot 4",
+          "edit_slot_4": "Edit slot 5",
+          "edit_slot_5": "Edit slot 6",
+          "edit_slot_6": "Edit slot 7",
+          "edit_slot_7": "Edit slot 8",
+          "edit_slot_8": "Edit slot 9",
+          "edit_slot_9": "Edit slot 10",
+          "edit_slot_10": "Edit slot 11",
+          "edit_slot_11": "Edit slot 12",
+          "add_slot": "Add another slot",
+          "copy_day": "Copy schedule from another day",
+          "push_days": "Also apply to other days",
+          "day_done": "Done"
+        }
+      },
+      "day_menu_fri": {
+        "title": "Friday schedule",
+        "menu_options": {
+          "edit_slot_0": "Edit slot 1",
+          "edit_slot_1": "Edit slot 2",
+          "edit_slot_2": "Edit slot 3",
+          "edit_slot_3": "Edit slot 4",
+          "edit_slot_4": "Edit slot 5",
+          "edit_slot_5": "Edit slot 6",
+          "edit_slot_6": "Edit slot 7",
+          "edit_slot_7": "Edit slot 8",
+          "edit_slot_8": "Edit slot 9",
+          "edit_slot_9": "Edit slot 10",
+          "edit_slot_10": "Edit slot 11",
+          "edit_slot_11": "Edit slot 12",
+          "add_slot": "Add another slot",
+          "copy_day": "Copy schedule from another day",
+          "push_days": "Also apply to other days",
+          "day_done": "Done"
+        }
+      },
+      "day_menu_sat": {
+        "title": "Saturday schedule",
+        "menu_options": {
+          "edit_slot_0": "Edit slot 1",
+          "edit_slot_1": "Edit slot 2",
+          "edit_slot_2": "Edit slot 3",
+          "edit_slot_3": "Edit slot 4",
+          "edit_slot_4": "Edit slot 5",
+          "edit_slot_5": "Edit slot 6",
+          "edit_slot_6": "Edit slot 7",
+          "edit_slot_7": "Edit slot 8",
+          "edit_slot_8": "Edit slot 9",
+          "edit_slot_9": "Edit slot 10",
+          "edit_slot_10": "Edit slot 11",
+          "edit_slot_11": "Edit slot 12",
+          "add_slot": "Add another slot",
+          "copy_day": "Copy schedule from another day",
+          "push_days": "Also apply to other days",
+          "day_done": "Done"
+        }
+      },
+      "day_menu_sun": {
+        "title": "Sunday schedule",
         "menu_options": {
           "edit_slot_0": "Edit slot 1",
           "edit_slot_1": "Edit slot 2",

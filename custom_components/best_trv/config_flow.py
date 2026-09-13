@@ -329,6 +329,17 @@ class BestTRVOptionsFlow(config_entries.OptionsFlow):
         picking which days to push to are each still a (much smaller) form
         of their own, since those genuinely need input; "Done" is what
         actually writes the result back to the config entry.
+
+        One static step_id per day (`day_menu_mon`, ...) rather than a
+        single shared "day_menu" - this menu deliberately carries no
+        `description_placeholders` (unlike the forms below, which have
+        used them safely all along), because that argument is not
+        guaranteed to exist on `async_show_menu` on every Home Assistant
+        version this integration supports; a per-day step_id gets a
+        day-specific, fully static, always-translatable title instead.
+        A day's current slot values are visible once you open "Edit slot
+        N", not in this menu itself - a deliberate trade for not
+        depending on that argument at all.
         """
         slots = self._working_day_slots
         menu_options = [f"edit_slot_{i}" for i in range(len(slots))]
@@ -336,24 +347,9 @@ class BestTRVOptionsFlow(config_entries.OptionsFlow):
             menu_options.append("add_slot")
         menu_options.extend(["copy_day", "push_days", "day_done"])
 
-        slots_summary = (
-            ", ".join(f"{s['time'][:5]} → {s['temperature']}°C" for s in slots)
-            if slots
-            else "(no slots yet)"
-        )
-        push_summary = (
-            ", ".join(_DAY_LABELS[d] for d in self._working_push_to_days)
-            if self._working_push_to_days
-            else "none"
-        )
         return self.async_show_menu(
-            step_id="day_menu",
+            step_id=f"day_menu_{self._working_day_key}",
             menu_options=menu_options,
-            description_placeholders={
-                "day": _DAY_LABELS[self._working_day_key],
-                "slots_summary": slots_summary,
-                "push_summary": push_summary,
-            },
         )
 
     def _suggest_next_slot(self, current: dict[str, Any]) -> dict[str, Any]:
