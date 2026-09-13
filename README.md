@@ -5,16 +5,29 @@
 [![Home Assistant](https://img.shields.io/badge/home%20assistant-2024.2.0%2B-41BDF5.svg)](https://www.home-assistant.io/)
 [![Open your Home Assistant instance and add this repository to HACS.](https://my.home-assistant.io/badges/hacs_repository.svg)](https://my.home-assistant.io/redirect/hacs_repository/?owner=lt-goldman&repository=best-trv&category=integration)
 
-A Home Assistant custom integration (`best_trv`) for hydronic
-setups where the **same** radiator/convector/TRV is fed either hot or cold
-water by a heat-pump changeover, and the TRV's own firmware only
-understands heating logic.
+## Why this exists
 
-Worked example this was built for: a heat pump feeds hot water in winter
-and cold water in summer through the same loop; an Aqara E1 TRV
-(`climate.trv`) regulates the flow; a changeover sensor
-(`sensor.wp_coolindicator`, `1` = passive cooling active) says which
-water the loop is currently carrying.
+More and more heat pumps can also provide passive cooling through the
+same hydronic loop that heats in winter - but at the time of writing, no
+Thermostatic Radiator Valve (TRV) on the market natively supports
+reversed control logic for cooling. Every TRV assumes "room too cold ->
+open, room too warm -> close"; none of them can flip that around when the
+same radiator suddenly carries cold water instead of hot.
+
+**Best TRV makes an ordinary, heat-only TRV work correctly in both
+directions anyway - no new hardware needed.** It's for anyone with a heat
+pump that heats and cools through the same radiators/convectors as the
+existing heating system, using regular Zigbee TRVs that were never
+designed for this. It also includes a full weekly schedule built in, and
+lets a room use multiple TRVs together with a single external
+room-temperature sensor.
+
+The currently supported hardware is the Aqara E1 via Zigbee2MQTT (see
+Architecture below for how other TRVs would plug in). Worked example: a
+heat pump feeds hot water in winter and cold water in summer through the
+same loop; an Aqara E1 TRV (`climate.trv`) regulates the flow; a
+changeover sensor (`sensor.wp_coolindicator`, `1` = passive cooling
+active) says which water the loop is currently carrying.
 
 ## The problem and the trick
 
@@ -94,17 +107,11 @@ disabled):
 
 ## Installing
 
-**Via HACS (recommended for iterating - no more manual copy/restart per
-change):** the repo is public - official HACS
-[does not support private repositories at all](https://www.hacs.xyz/docs/faq/private_repositories/)
-(its own GitHub login mints a public-data-only token; there's no setting
-to grant it private access). Either click the **"Open your Home Assistant
-instance and add this repository to HACS"** badge above, or add it
-manually: HACS -> the "..." menu (top right) -> **Custom repositories**
--> URL `https://github.com/lt-goldman/best-trv`, category **Integration**.
-Once added, install "Best TRV" from HACS like any other integration -
-updates then show up there too, instead of a manual copy each time a new
-version is tagged.
+**Via HACS:** click the **"Open your Home Assistant instance and add this
+repository to HACS"** badge above, or add it manually: HACS -> the "..."
+menu (top right) -> **Custom repositories** -> URL
+`https://github.com/lt-goldman/best-trv`, category **Integration**. Once
+added, install "Best TRV" from HACS like any other integration.
 
 **Manual (no HACS):**
 
@@ -127,94 +134,44 @@ version is tagged.
 
 ## Design decisions worth knowing about
 
-- **The climate entity only exposes `auto`/`off` - there is no manual
-  "heat" or "cool" choice.** Earlier versions exposed `heat`/`cool`/`off`,
-  but real-world testing showed the obvious confusion: picking `cool` while
-  the changeover sensor still says the loop is heating did nothing, because
-  the changeover sensor - not the user - always decides which direction is
-  actually correct (see `SystemWaterMode`/`ChangeoverDebouncer` in
-  `controller.py`). `auto` means "on, direction follows the heat pump";
-  `hvac_action` (`heating`/`cooling`/`idle`) reports what that direction
-  currently is. An entity restored from before this change (state `heat`
-  or `cool`) falls back to `off` rather than guessing which one to become.
-- **The physical TRV's own setpoint is kept in sync with Best TRV's, on
-  every change.** Best TRV never controls the valve directly - it only
-  toggles the TRV's `heat`/`off` and feeds it a (real or mirrored)
-  temperature. The mirrored-temperature math (`fake = 2*setpoint - real`)
-  only produces correct valve behaviour if the physical TRV compares that
-  feed against the *same* setpoint it was computed against. So every time
-  the target temperature changes (user action, mode switch, or the clamp
-  applied on restore), `_async_sync_setpoints` pushes it to the TRV's own
-  `climate.set_temperature`, clamped to whatever range the physical device
-  itself reports (which may be wider than Best TRV's own heat/cool range).
-  Skipping this would silently regulate around whichever setpoint was last
-  set on the TRV directly (e.g. via its own app) instead of the one shown
-  in Home Assistant.
-- **Fail-open, not fail-closed.** If the room sensor or the changeover
-  sensor becomes unavailable (or reports something non-numeric) while the
-  entity is in `heat`/`cool`, every reachable TRV is driven to the lowest
-  value its `external_temperature_input` accepts - forcing the valve open
-  - rather than closed. This is deliberate for a heat-pump-fed
-  installation: closing valves under stale data risks starving the pump of
-  flow, which is judged worse than open valves during a sensor outage.
-  `off` is unaffected - it's a deliberate stop, not a failure, and sends
-  `system_mode: off` directly.
-- **Multiple TRVs per room degrade independently.** If one of several TRVs
-  in a room goes unavailable, the rest keep being controlled normally; the
-  climate entity stays up and reports per-TRV availability in
-  `trv_availability`.
-- **`hvac_action` is an estimate, not a measurement.** The Aqara E1 exposes
-  no valve position or running-state attribute, so `heating`/`cooling`/
-  `idle` is inferred from the same feed value we send it, assuming a
-  symmetric on-device hysteresis (`DEFAULT_ASSUMED_DEADBAND` in
-  `const.py`). Treat it as indicative.
-- **No exact documented timeout for `external_temperature_input` reverting,
-  but a confirmed real-world failure mode.** No official Aqara/Z2M
-  documentation gives a number, but a user reported (Z2M discussion
-  [#19357](https://github.com/Koenkk/zigbee2mqtt/discussions/19357), via
-  the [external-sensor blueprint thread](https://community.home-assistant.io/t/z2m-aqara-trv-e1-link-external-temperature-sensor/609689))
-  that their unit's `sensor` select silently reverted from `external` to
-  `internal` after several days idle. The community mitigation that's
-  actually reported to work is not a fixed refresh cadence on the *number*
-  value, but re-asserting the `select` on every push - so
-  `AqaraE1Z2MAdapter.async_push_feed_temperature` checks and, if needed,
-  re-sets `select.<trv>_sensor` to `external` before every write, not just
-  once at startup. The `forced_refresh_seconds` timer (default 90s) then
-  guarantees that check happens at least that often even with a perfectly
-  stable room temperature - a wide margin under the days-scale failure
-  actually observed. Separately, writing `external_temperature_input` is
-  known to intermittently fail with a "Value not found" converter error
-  until the device is re-paired ([Z2M issue #21397](https://github.com/Koenkk/zigbee2mqtt/issues/21397));
-  the adapter logs and swallows that rather than crashing the control loop,
-  and retries on the next tick. **Open item:** still watch the real
-  installation - this is evidence-based, not proven on this hardware yet.
-- **Changeover debounce (default 120s)** guards against a shunt sensor
-  that briefly flaps mid-transition, so the valve doesn't get yanked
-  between heat- and cool-direction logic on the changeover moment itself.
-- **The weekly schedule is built into Best TRV itself - no HACS
-  scheduler dependency.** Deliberate choice: a custom integration that
-  depends on a separately-maintained HACS card/component breaks the
-  moment either side ships an incompatible update. The engine
-  (`controller.get_active_schedule_slot`, fully unit-tested) is a pure
-  function of "what temperature applies right now"; the UI is a plain
-  form under the integration's **Configure** menu (Tuning / Schedule
-  on/off / one step per weekday), not a drag-based time-block editor -
-  see "Explicitly out of scope" below for that trade-off. Up to 4
-  (time, temperature) slots per day; a day left empty carries over the
-  most recent earlier day's last slot (so configuring only Monday holds
-  that value all week). A manual temperature change holds until the
-  *next* scheduled transition rather than being fought on every tick -
-  the schedule only re-applies when the active slot's identity changes,
-  not on every control-loop tick. The Aqara E1's own native
-  `schedule`/`schedule_settings` are deliberately left alone
-  (`schedule: false`) - letting the device change its own setpoint on a
-  timer would fight the setpoint-sync this integration depends on,
-  especially in `cool` (see the setpoint-sync bullet above).
+- **`auto`/`off` only - no manual "heat"/"cool" choice.** The changeover
+  sensor, not the user, always decides which direction is correct; picking
+  "cool" while the loop is actually heating wouldn't do anything, so it
+  isn't offered. `hvac_action` (`heating`/`cooling`/`idle`) reports the
+  real direction.
+- **The physical TRV's own setpoint stays in sync with Best TRV's.** The
+  mirrored-temperature math only works if the TRV compares the feed value
+  against the same setpoint it was computed against, so every target-
+  temperature change is pushed to the TRV directly, not just shown in Home
+  Assistant.
+- **Fail-open, not fail-closed.** If the room or changeover sensor
+  becomes unavailable, every reachable TRV is driven fully open rather
+  than closed - appropriate for a heat-pump-fed system, where a closed
+  valve on stale data risks starving the pump of flow. `off` is
+  unaffected.
+- **Multiple TRVs in one room degrade independently** - one unavailable
+  TRV doesn't take the others, or the room, down with it.
+- **`hvac_action` is an estimate, not a measurement.** Most TRVs don't
+  expose valve position, so it's inferred from the feed value and an
+  assumed hysteresis (`DEFAULT_ASSUMED_DEADBAND`).
+- **The TRV's external-sensor selection is re-asserted on every push**,
+  not just at setup, since some TRVs can silently revert to their own
+  internal sensor over time. Write failures are logged and retried on the
+  next tick rather than crashing the control loop.
+- **Changeover debounce** avoids yanking the valve between directions if
+  the changeover sensor briefly flaps mid-transition.
+- **Scheduling is native, not a HACS dependency** - a custom integration
+  depending on a separately-maintained HACS component breaks the moment
+  either side ships an incompatible update. Up to 4 time/temperature slots
+  per weekday; a day left empty carries over the most recent configured
+  day. Manual adjustments hold until the next scheduled change instead of
+  being overwritten on every tick. The TRV's own native scheduling is left
+  disabled - it would fight the setpoint-sync above.
 
 ## Explicitly out of scope for this MVP
 
-Per the original spec, deferred on purpose until the mirrored-temperature
-approach has proven itself:
+Deferred on purpose until the mirrored-temperature approach has proven
+itself in the field:
 
 - PID / TPI / MPC / direct valve-position control (`DirectValveAdapter`).
 - Presets (comfort/eco/away/sleep).
@@ -241,11 +198,8 @@ ruff check custom_components/ tests/
 `controller.py` has zero Home Assistant dependency, so `tests/` runs
 without a Home Assistant install. `climate.py`, `config_flow.py` and
 `adapters/aqara_e1_z2m.py` are checked with `ruff --select=F,E9` for
-syntax/undefined-name errors, and have since been verified against a real
-running installation (setpoint-sync and `sensor: external` selection both
-confirmed via the Aqara's own Zigbee2MQTT state payload) - see the git
-history for what that surfaced and fixed (the availability deadlock in
-particular).
+syntax/undefined-name errors, and have been verified end-to-end against a
+real running installation.
 
 **Releasing:** bump `version` in `manifest.json`, commit, `git tag -a
 vX.Y.Z`, `git push origin master --tags`, then `gh release create vX.Y.Z`
