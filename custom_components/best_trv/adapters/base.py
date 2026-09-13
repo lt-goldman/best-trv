@@ -36,16 +36,20 @@ class TRVAdapter(ABC):
         """
 
     @abstractmethod
-    async def async_set_enabled(self, enabled: bool) -> None:
+    async def async_set_enabled(self, enabled: bool) -> bool:
         """Turn the TRV's own control loop on/off.
 
         For a heat-only device this maps to its system_mode (heat/off) -
         Best TRV's own `cool` mode still leaves the TRV
         "enabled", just fed a mirrored temperature.
+
+        Returns True if the command was accepted, False if it failed (the
+        adapter has already logged why) - the caller's CommandQueue uses
+        this to decide when to retry, so implementations must never raise.
         """
 
     @abstractmethod
-    async def async_set_setpoint(self, setpoint: float) -> None:
+    async def async_set_setpoint(self, setpoint: float) -> bool:
         """Sync the TRV's own comparison point to Best TRV's setpoint.
 
         The mirrored-temperature math (`fake = 2*setpoint - real`) is only
@@ -56,8 +60,13 @@ class TRVAdapter(ABC):
         still comparing against whatever setpoint was last set on it
         directly (e.g. via its own app), and the math silently regulates
         around the wrong target.
+
+        Returns True/False as `async_set_enabled` does.
         """
 
     @abstractmethod
-    async def async_push_feed_temperature(self, temperature: float) -> None:
-        """Send the (real or mirrored) temperature this TRV should see."""
+    async def async_push_feed_temperature(self, temperature: float) -> bool:
+        """Send the (real or mirrored) temperature this TRV should see.
+
+        Returns True/False as `async_set_enabled` does.
+        """

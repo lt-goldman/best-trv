@@ -171,8 +171,22 @@ added, install "Best TRV" from HACS like any other integration.
   via "also apply to these days" in the same submission - setting up
   several identical days no longer means visiting each one individually.
   Manual adjustments hold until the next scheduled change instead of
-  being overwritten on every tick. The TRV's own native scheduling is
-  left disabled - it would fight the setpoint-sync above.
+  being overwritten on every tick - call the `best_trv.resync_schedule`
+  service (target the entity) to snap back to whatever the schedule
+  currently says immediately, instead of waiting for the next transition.
+  The TRV's own native scheduling is left disabled - it would fight the
+  setpoint-sync above.
+- **Failed commands are retried with backoff, not sent once and
+  forgotten.** Enabling/disabling a TRV, syncing its setpoint, and
+  pushing the feed temperature each go through a small per-adapter
+  `CommandQueue` (`controller.py`, fully unit-tested): a new desired
+  value is always tried immediately, but a failed attempt backs off
+  (30s/60s/120s/300s) before being retried automatically on a later tick,
+  rather than a single best-effort call with no follow-up. `enable` in
+  particular used to have no error handling at all, so a failed Zigbee
+  write there could crash entity setup instead of just being retried.
+  `commands_pending` in the entity's attributes shows how many commands
+  are currently backing off.
 
 ## Explicitly out of scope for this MVP
 
@@ -183,8 +197,6 @@ itself in the field:
 - Presets (comfort/eco/away/sleep).
 - Window/door-open suspend.
 - Weather compensation, AI-learning.
-- A robust command queue with retry/confirmation (MVP does a single
-  best-effort service call per push).
 - **A custom Lovelace card with a drag-based schedule time-bar.** The
   schedule *engine* is built (see above); a polished visual editor like
   the HACS scheduler-card is a genuinely separate project (its own

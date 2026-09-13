@@ -295,5 +295,11 @@
         }
       }
     }
+  },
+  "services": {
+    "resync_schedule": {
+      "name": "Schema hersynchroniseren",
+      "description": "Pas meteen toe wat het weekschema nu voor deze entiteit zegt, en negeer daarbij een handmatige temperatuur-override zonder op de eerstvolgende geplande overgang te wachten."
+    }
   }
 }

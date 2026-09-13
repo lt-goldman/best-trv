@@ -27,8 +27,13 @@ value, but re-asserting the `select` state on every push - which is what
 forced-refresh in climate.py. Separately, writes to
 external_temperature_input are known to intermittently fail with a
 "Value not found" zigbee-herdsman-converters error until the device is
-re-paired (Z2M issue #21397) - `async_push_feed_temperature` swallows and
-logs that instead of raising, since the next control-loop tick will retry.
+re-paired (Z2M issue #21397).
+
+None of the three command methods below ever raise: each swallows and
+logs its own `HomeAssistantError` and reports success/failure back as a
+bool instead, so `climate.py`'s `CommandQueue` can decide when it's worth
+retrying a failed command rather than the caller crashing or silently
+never trying again.
 """
 from __future__ import annotations
 
@@ -128,18 +133,25 @@ class AqaraE1Z2MAdapter:
                 err,
             )
 
-    async def async_set_enabled(self, enabled: bool) -> None:
-        await self._hass.services.async_call(
-            "climate",
-            "set_hvac_mode",
-            {
-                "entity_id": self.climate_entity_id,
-                "hvac_mode": HVACMode.HEAT if enabled else HVACMode.OFF,
-            },
-            blocking=True,
-        )
+    async def async_set_enabled(self, enabled: bool) -> bool:
+        try:
+            await self._hass.services.async_call(
+                "climate",
+                "set_hvac_mode",
+                {
+                    "entity_id": self.climate_entity_id,
+                    "hvac_mode": HVACMode.HEAT if enabled else HVACMode.OFF,
+                },
+                blocking=True,
+            )
+        except HomeAssistantError as err:
+            _LOGGER.warning(
+                "Failed to set %s enabled=%s: %s", self.climate_entity_id, enabled, err
+            )
+            return False
+        return True
 
-    async def async_set_setpoint(self, setpoint: float) -> None:
+    async def async_set_setpoint(self, setpoint: float) -> bool:
         # Clamp to what the physical device itself accepts - its own
         # min/max may be wider than Best TRV's configured heat/cool range
         # (e.g. climate.trv reports 5-30 degC), but
@@ -164,8 +176,10 @@ class AqaraE1Z2MAdapter:
             _LOGGER.warning(
                 "Failed to sync setpoint %.1f to %s: %s", setpoint, self.climate_entity_id, err
             )
+            return False
+        return True
 
-    async def async_push_feed_temperature(self, temperature: float) -> None:
+    async def async_push_feed_temperature(self, temperature: float) -> bool:
         # Re-assert `sensor: external` on every push rather than only once
         # at startup - the community-observed failure mode is this select
         # silently reverting to `internal` after days of otherwise-normal
@@ -187,8 +201,7 @@ class AqaraE1Z2MAdapter:
             )
         except HomeAssistantError as err:
             # Known intermittent zigbee-herdsman-converters failure on this
-            # device ("Value not found") until it is re-paired. Don't crash
-            # the control loop over it - the next tick retries.
+            # device ("Value not found") until it is re-paired.
             _LOGGER.warning(
                 "Failed to push feed temperature %s to %s via %s: %s",
                 value,
@@ -196,7 +209,7 @@ class AqaraE1Z2MAdapter:
                 self._number_entity_id,
                 err,
             )
-            return
+            return False
 
         _LOGGER.debug(
             "Pushed feed temperature %s to %s via %s",
@@ -204,3 +217,4 @@ class AqaraE1Z2MAdapter:
             self.climate_entity_id,
             self._number_entity_id,
         )
+        return True

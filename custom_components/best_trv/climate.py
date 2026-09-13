@@ -17,6 +17,7 @@ from homeassistant.components.climate.const import ClimateEntityFeature, HVACMod
 from homeassistant.config_entries import ConfigEntry
 from homeassistant.const import ATTR_TEMPERATURE, STATE_UNAVAILABLE, STATE_UNKNOWN, UnitOfTemperature
 from homeassistant.core import Event, HomeAssistant, callback
+from homeassistant.helpers import entity_platform
 from homeassistant.helpers.device_registry import DeviceInfo
 from homeassistant.helpers.entity_platform import AddEntitiesCallback
 from homeassistant.helpers.event import async_track_state_change_event, async_track_time_interval
@@ -52,6 +53,7 @@ from .const import (
 )
 from .controller import (
     ChangeoverDebouncer,
+    CommandQueue,
     HvacAction,
     ScheduleSlot,
     SystemWaterMode,
@@ -70,6 +72,9 @@ async def async_setup_entry(
     hass: HomeAssistant, entry: ConfigEntry, async_add_entities: AddEntitiesCallback
 ) -> None:
     async_add_entities([BestTRV(hass, entry)])
+
+    platform = entity_platform.async_get_current_platform()
+    platform.async_register_entity_service("resync_schedule", {}, "async_resync_schedule")
 
 
 class BestTRV(ClimateEntity, RestoreEntity):
@@ -152,8 +157,13 @@ class BestTRV(ClimateEntity, RestoreEntity):
         self._last_applied_schedule_slot: tuple[str, ScheduleSlot] | None = None
 
         self._changeover = ChangeoverDebouncer(debounce_seconds=self._debounce_seconds)
-        # climate_entity_id -> (last value sent, monotonic timestamp)
+        # climate_entity_id -> (last value sent, monotonic timestamp) - the
+        # min-delta/forced-refresh throttle for feed-temperature pushes.
         self._last_sent: dict[str, tuple[float, float]] = {}
+        # Retry-with-backoff for failed commands (enable, setpoint, feed
+        # temperature) - see controller.CommandQueue. Keyed per adapter so
+        # one TRV's failure/backoff never blocks another's.
+        self._command_queue = CommandQueue()
 
         self._attr_hvac_mode: HVACMode = HVACMode.OFF
         self._attr_target_temperature: float | None = None
@@ -196,8 +206,8 @@ class BestTRV(ClimateEntity, RestoreEntity):
         for adapter in self._adapters.values():
             if isinstance(adapter, AqaraE1Z2MAdapter):
                 await adapter.async_ensure_external_sensor_selected()
-            await adapter.async_set_enabled(self._attr_hvac_mode != HVACMode.OFF)
-        await self._async_sync_setpoints()
+        # Enable/setpoint sync happens via _async_update_control below (it
+        # always runs both, queue-gated) - no need to also call them here.
 
         self._remove_listeners.append(
             async_track_state_change_event(
@@ -276,6 +286,7 @@ class BestTRV(ClimateEntity, RestoreEntity):
             "trv_availability": {
                 entity_id: adapter.available for entity_id, adapter in self._adapters.items()
             },
+            "commands_pending": self._command_queue.pending_count(),
             "schedule_enabled": self._schedule_enabled,
             "active_schedule_slot": (
                 f"{self._last_applied_schedule_slot[0]} {self._last_applied_schedule_slot[1].time}"
@@ -291,8 +302,10 @@ class BestTRV(ClimateEntity, RestoreEntity):
         if temperature is None:
             return
         self._attr_target_temperature = min(max(float(temperature), self.min_temp), self.max_temp)
-        await self._async_sync_setpoints()
         self.async_write_ha_state()
+        # Syncs the setpoint too (and enabled, and the feed push) - no need
+        # to also call those individually, they'd just be a redundant
+        # queue-gated no-op immediately followed by this anyway.
         await self._async_update_control(force=True)
 
     async def async_set_hvac_mode(self, hvac_mode: HVACMode) -> None:
@@ -301,9 +314,6 @@ class BestTRV(ClimateEntity, RestoreEntity):
             self._attr_target_temperature = min(
                 max(self._attr_target_temperature, self.min_temp), self.max_temp
             )
-        await self._async_sync_setpoints()
-        for adapter in self._adapters.values():
-            await adapter.async_set_enabled(hvac_mode != HVACMode.OFF)
         self.async_write_ha_state()
         await self._async_update_control(force=True)
 
@@ -325,6 +335,27 @@ class BestTRV(ClimateEntity, RestoreEntity):
         active = get_active_schedule_slot(self._schedule, dt_util.now())
         if active is None or active == self._last_applied_schedule_slot:
             return
+        await self._apply_schedule_slot(active)
+
+    async def async_resync_schedule(self) -> None:
+        """Force-apply whatever the schedule says right now (service call).
+
+        The explicit counterpart to `_async_apply_schedule`'s "hold until
+        the next transition" behaviour: this bypasses that guard entirely,
+        for a user who wants to stop overriding manually and go back to
+        the schedule immediately rather than waiting. A no-op if the
+        schedule is off or empty, or if no slot is currently active.
+        """
+        if not self._schedule_enabled or not self._schedule:
+            return
+        active = get_active_schedule_slot(self._schedule, dt_util.now())
+        if active is None:
+            return
+        await self._apply_schedule_slot(active)
+        self.async_write_ha_state()
+        await self._async_update_control(force=True)
+
+    async def _apply_schedule_slot(self, active: tuple[str, ScheduleSlot]) -> None:
         self._last_applied_schedule_slot = active
         _, slot = active
         self._attr_target_temperature = min(max(slot.temperature, self.min_temp), self.max_temp)
@@ -333,15 +364,39 @@ class BestTRV(ClimateEntity, RestoreEntity):
     async def _async_sync_setpoints(self) -> None:
         """Push our target_temperature to every adapter's own TRV setpoint.
 
-        Must run whenever the target changes (user action, mode switch, or
-        the clamp on restore) - see TRVAdapter.async_set_setpoint for why
-        this isn't optional.
+        Safe to call unconditionally on every tick, not just reactively on
+        a target-temperature change: `CommandQueue` only lets a genuinely
+        new value through immediately, or a previously-failed one once its
+        backoff has elapsed - a repeat of an already-applied value is a
+        cheap no-op. That's what gives a failed setpoint sync (previously
+        unretried until the user happened to change the temperature again)
+        an actual periodic retry.
         """
         if self._attr_target_temperature is None:
             return
-        for adapter in self._adapters.values():
-            if adapter.available:
-                await adapter.async_set_setpoint(self._attr_target_temperature)
+        target = self._attr_target_temperature
+        for climate_entity_id, adapter in self._adapters.items():
+            if not adapter.available:
+                continue
+            key = (climate_entity_id, "setpoint")
+            if not self._command_queue.should_attempt(key, target):
+                continue
+            self._command_queue.mark_attempted(key)
+            if await adapter.async_set_setpoint(target):
+                self._command_queue.mark_succeeded(key)
+
+    async def _async_sync_enabled(self) -> None:
+        """Push our on/off state to every adapter, retried the same way."""
+        enabled = self._attr_hvac_mode != HVACMode.OFF
+        for climate_entity_id, adapter in self._adapters.items():
+            if not adapter.available:
+                continue
+            key = (climate_entity_id, "enabled")
+            if not self._command_queue.should_attempt(key, enabled):
+                continue
+            self._command_queue.mark_attempted(key)
+            if await adapter.async_set_enabled(enabled):
+                self._command_queue.mark_succeeded(key)
 
     # -- internal update loop ----------------------------------------------
 
@@ -353,6 +408,10 @@ class BestTRV(ClimateEntity, RestoreEntity):
         await self._async_update_control()
 
     async def _async_update_control(self, force: bool = False) -> None:
+        # Runs every tick regardless of mode - queue-gated, so a failed
+        # "turn off" is retried too, not just a failed "turn on"/setpoint.
+        await self._async_sync_enabled()
+
         if self._attr_hvac_mode == HVACMode.OFF:
             self._degraded = False
             self._degraded_reason = None
@@ -361,6 +420,7 @@ class BestTRV(ClimateEntity, RestoreEntity):
             return
 
         await self._async_apply_schedule()
+        await self._async_sync_setpoints()
 
         room_state = self.hass.states.get(self._room_sensor_entity_id)
         changeover_state = self.hass.states.get(self._changeover_sensor_entity_id)
@@ -445,7 +505,17 @@ class BestTRV(ClimateEntity, RestoreEntity):
                 )
 
             if should_push:
-                await adapter.async_push_feed_temperature(feed_value)
-                self._last_sent[climate_entity_id] = (feed_value, time.monotonic())
+                # `should_push_feed_temperature` decides "is this a moment
+                # to try" (magnitude of change / forced refresh); the
+                # CommandQueue decides "did the last attempt at this exact
+                # value already fail, and if so has its backoff elapsed" -
+                # composing both means a failing push doesn't get hammered
+                # every tick, but also doesn't just silently stop retrying.
+                key = (climate_entity_id, "feed_temperature")
+                if self._command_queue.should_attempt(key, feed_value):
+                    self._command_queue.mark_attempted(key)
+                    if await adapter.async_push_feed_temperature(feed_value):
+                        self._command_queue.mark_succeeded(key)
+                    self._last_sent[climate_entity_id] = (feed_value, time.monotonic())
 
         self.async_write_ha_state()

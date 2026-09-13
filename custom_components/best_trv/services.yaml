@@ -1,0 +1,5 @@
+resync_schedule:
+  target:
+    entity:
+      domain: climate
+      integration: best_trv

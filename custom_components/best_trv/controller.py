@@ -12,6 +12,7 @@ import time
 from dataclasses import dataclass, field
 from datetime import datetime, time as time_of_day, timedelta
 from enum import Enum
+from typing import Any, Hashable
 
 # Monday=0 .. Sunday=6, matching `date.weekday()` - this order is load-bearing
 # for the lookback in get_active_schedule_slot, not just a display choice.
@@ -246,3 +247,72 @@ def should_push_feed_temperature(
     if last_sent_at is not None and (now - last_sent_at) >= forced_refresh_seconds:
         return True
     return False
+
+
+@dataclass
+class _PendingCommand:
+    value: Any
+    attempts: int = 0
+    next_retry_at: float = 0.0
+
+
+class CommandQueue:
+    """Decides whether a command is worth (re)attempting right now.
+
+    Sends nothing itself - the caller still owns the actual service call.
+    This only tracks, per command key, whether the desired value has
+    changed since the last successful send, or whether a previous failed
+    attempt's backoff has elapsed.
+
+    Exists because Zigbee/Z2M writes can fail transiently (a confirmed,
+    real failure mode on this project - see adapters/aqara_e1_z2m.py), and
+    a single best-effort attempt with no follow-up leaves the system stuck
+    on a stale command until something unrelated happens to change the
+    desired value again. `async_set_enabled`/`async_set_setpoint` had
+    exactly that gap before this existed: no periodic re-check at all, so
+    a failed enable or setpoint sync could silently persist indefinitely.
+
+    Retries continue indefinitely (no attempt cap) with exponential
+    backoff capped at the last configured step - a transient failure can
+    resolve itself at any time, and each caller ties retry checks to its
+    own regular tick anyway, so there's no unbounded resource cost to
+    just keep trying slowly.
+    """
+
+    def __init__(self, backoff_seconds: tuple[float, ...] = (30.0, 60.0, 120.0, 300.0)) -> None:
+        self._backoff_seconds = backoff_seconds
+        self._pending: dict[Hashable, _PendingCommand] = {}
+
+    def should_attempt(self, key: Hashable, value: Any, *, now: float | None = None) -> bool:
+        """Whether `key` is worth attempting with `value` right now.
+
+        Always true the first time a value is seen, or whenever it changes
+        from what was last pending/attempted - a genuinely new desired
+        value is never held back by an older value's backoff. Otherwise
+        true only once the backoff for the current value has elapsed.
+        """
+        now = time.monotonic() if now is None else now
+        pending = self._pending.get(key)
+        if pending is None or pending.value != value:
+            self._pending[key] = _PendingCommand(value=value)
+            return True
+        return now >= pending.next_retry_at
+
+    def mark_attempted(self, key: Hashable, *, now: float | None = None) -> None:
+        """Record a failed (or in-flight) attempt and schedule the backoff
+        before `should_attempt` will allow trying this same value again."""
+        now = time.monotonic() if now is None else now
+        pending = self._pending.get(key)
+        if pending is None:
+            return
+        pending.attempts += 1
+        step = min(pending.attempts - 1, len(self._backoff_seconds) - 1)
+        pending.next_retry_at = now + self._backoff_seconds[step]
+
+    def mark_succeeded(self, key: Hashable) -> None:
+        """Clear `key`'s pending state after a confirmed successful send."""
+        self._pending.pop(key, None)
+
+    def pending_count(self) -> int:
+        """Number of command keys currently awaiting a successful attempt."""
+        return len(self._pending)

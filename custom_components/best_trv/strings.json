@@ -295,5 +295,11 @@
         }
       }
     }
+  },
+  "services": {
+    "resync_schedule": {
+      "name": "Resync schedule",
+      "description": "Immediately re-apply whatever the weekly schedule currently says for this entity, discarding any manual temperature override without waiting for the next scheduled transition."
+    }
   }
 }

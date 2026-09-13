@@ -17,6 +17,7 @@ from datetime import datetime as dt, time as time_of_day  # noqa: E402
 
 from controller import (  # noqa: E402
     ChangeoverDebouncer,
+    CommandQueue,
     HvacAction,
     ScheduleSlot,
     SystemWaterMode,
@@ -309,3 +310,72 @@ def test_parse_schedule_config_round_trips_from_json_safe_form():
         "mon": [ScheduleSlot(time_of_day(7, 0, 0), 21.0)],
         "tue": [],
     }
+
+
+# -- CommandQueue -------------------------------------------------------------
+
+
+def test_command_queue_first_attempt_always_allowed():
+    queue = CommandQueue()
+    assert queue.should_attempt("k", 21.0, now=0)
+
+
+def test_command_queue_blocks_retry_before_backoff_elapses():
+    queue = CommandQueue()
+    assert queue.should_attempt("k", 21.0, now=0)
+    queue.mark_attempted("k", now=0)  # failed -> backoff to the first step (30s)
+    assert not queue.should_attempt("k", 21.0, now=10)
+    assert queue.should_attempt("k", 21.0, now=31)
+
+
+def test_command_queue_backoff_increases_with_repeated_failures():
+    queue = CommandQueue(backoff_seconds=(30.0, 60.0))
+    queue.should_attempt("k", 21.0, now=0)
+    queue.mark_attempted("k", now=0)  # -> next retry at 30
+    assert queue.should_attempt("k", 21.0, now=31)
+    queue.mark_attempted("k", now=31)  # -> next retry at 31+60=91
+    assert not queue.should_attempt("k", 21.0, now=90)
+    assert queue.should_attempt("k", 21.0, now=91)
+
+
+def test_command_queue_backoff_caps_at_the_last_configured_step():
+    queue = CommandQueue(backoff_seconds=(30.0, 60.0))
+    queue.should_attempt("k", 21.0, now=0)
+    for i in range(5):  # far more failures than backoff steps configured
+        queue.mark_attempted("k", now=i * 1000)
+    # Last attempt was at now=4000; backoff stays at the final 60s step,
+    # never grows unbounded or raises an index error past the tuple's end.
+    assert not queue.should_attempt("k", 21.0, now=4001)
+    assert queue.should_attempt("k", 21.0, now=4061)
+
+
+def test_command_queue_new_value_resets_and_allows_immediate_attempt():
+    queue = CommandQueue()
+    queue.should_attempt("k", 21.0, now=0)
+    queue.mark_attempted("k", now=0)
+    assert not queue.should_attempt("k", 21.0, now=5)
+    # A genuinely different desired value is never held back by the old
+    # value's backoff - e.g. the room temperature moved, a new feed value
+    # is worth trying right away even while the previous one is retrying.
+    assert queue.should_attempt("k", 22.0, now=5)
+
+
+def test_command_queue_mark_succeeded_clears_pending_state():
+    queue = CommandQueue()
+    queue.should_attempt("k", 21.0, now=0)
+    queue.mark_attempted("k", now=0)
+    assert queue.pending_count() == 1
+    queue.mark_succeeded("k")
+    assert queue.pending_count() == 0
+    # With no pending state left, the same value again counts as fresh.
+    assert queue.should_attempt("k", 21.0, now=1)
+
+
+def test_command_queue_tracks_multiple_keys_independently():
+    queue = CommandQueue()
+    assert queue.should_attempt("a", 1, now=0)
+    assert queue.should_attempt("b", 2, now=0)
+    queue.mark_attempted("a", now=0)
+    assert queue.pending_count() == 2
+    assert not queue.should_attempt("a", 1, now=1)
+    assert queue.should_attempt("b", 2, now=1)  # "b" never failed - still fresh
