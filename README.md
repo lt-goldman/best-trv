@@ -5,13 +5,6 @@
 [![Home Assistant](https://img.shields.io/badge/home%20assistant-2024.2.0%2B-41BDF5.svg)](https://www.home-assistant.io/)
 [![Open your Home Assistant instance and add this repository to HACS.](https://my.home-assistant.io/badges/hacs_repository.svg)](https://my.home-assistant.io/redirect/hacs_repository/?owner=lt-goldman&repository=best-trv&category=integration)
 
-> The repo is public (required - official HACS does not support private
-> repositories at all, see the "Via HACS" note below). No
-> downloads/build/translation badges here: those need a public GitHub
-> Actions/Crowdin/HACS-analytics setup this personal repo doesn't have,
-> and this isn't submitted to the HACS default store. Faking them with
-> static images would just be misleading.
-
 A Home Assistant custom integration (`best_trv`) for hydronic
 setups where the **same** radiator/convector/TRV is fed either hot or cold
 water by a heat-pump changeover, and the TRV's own firmware only
