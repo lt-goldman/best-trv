@@ -340,6 +340,13 @@ class BestTRVOptionsFlow(config_entries.OptionsFlow):
         A day's current slot values are visible once you open "Edit slot
         N", not in this menu itself - a deliberate trade for not
         depending on that argument at all.
+
+        Home Assistant's FlowManager validates `hasattr(flow,
+        f"async_step_{result_step_id}")` for the step_id of *any* result a
+        step returns, not only for a step_id being navigated to by name -
+        so each of the 7 day_menu_* step_ids below needs its own
+        async_step_day_menu_<day> method even though nothing ever actually
+        dispatches to it by name (see the matching methods further down).
         """
         slots = self._working_day_slots
         menu_options = [f"edit_slot_{i}" for i in range(len(slots))]
@@ -351,6 +358,31 @@ class BestTRVOptionsFlow(config_entries.OptionsFlow):
             step_id=f"day_menu_{self._working_day_key}",
             menu_options=menu_options,
         )
+
+    # HA validates that a step_id returned in a FlowResult has a matching
+    # async_step_<id> method, even for a menu you only ever reach by
+    # returning it directly (see _show_day_menu's docstring) - these 7
+    # exist purely to satisfy that check.
+    async def async_step_day_menu_mon(self, user_input=None) -> FlowResult:
+        return self._show_day_menu()
+
+    async def async_step_day_menu_tue(self, user_input=None) -> FlowResult:
+        return self._show_day_menu()
+
+    async def async_step_day_menu_wed(self, user_input=None) -> FlowResult:
+        return self._show_day_menu()
+
+    async def async_step_day_menu_thu(self, user_input=None) -> FlowResult:
+        return self._show_day_menu()
+
+    async def async_step_day_menu_fri(self, user_input=None) -> FlowResult:
+        return self._show_day_menu()
+
+    async def async_step_day_menu_sat(self, user_input=None) -> FlowResult:
+        return self._show_day_menu()
+
+    async def async_step_day_menu_sun(self, user_input=None) -> FlowResult:
+        return self._show_day_menu()
 
     def _suggest_next_slot(self, current: dict[str, Any]) -> dict[str, Any]:
         """A starting point for a freshly-appended slot: an hour after the
