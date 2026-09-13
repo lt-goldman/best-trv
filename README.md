@@ -89,6 +89,18 @@ disabled):
 
 ## Installing
 
+**Via HACS (recommended for iterating - no more manual copy/restart per
+change):** the repo is a private GitHub repo, so add it as a HACS custom
+repository: HACS -> the "..." menu (top right) -> **Custom repositories**
+-> URL `https://github.com/lt-goldman/best-trv`, category **Integration**.
+A private repo needs a GitHub personal access token configured under
+HACS's own settings first (Settings -> Devices & services -> HACS ->
+Configure). Once added, install "Best TRV" from HACS like any other
+integration - updates then show up there too, instead of a manual copy
+each time a new version is tagged.
+
+**Manual (no HACS):**
+
 1. Copy `custom_components/best_trv` into your Home
    Assistant `config/custom_components/` directory.
 2. Restart Home Assistant.
