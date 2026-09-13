@@ -162,13 +162,17 @@ added, install "Best TRV" from HACS like any other integration.
   the changeover sensor briefly flaps mid-transition.
 - **Scheduling is native, not a HACS dependency** - a custom integration
   depending on a separately-maintained HACS component breaks the moment
-  either side ships an incompatible update. Up to 4 time/temperature slots
-  per weekday; a day left empty carries over the most recent configured
-  day; each day's step has a "copy from" option to reuse another day's
-  program instead of re-entering it. Manual adjustments hold until the
-  next scheduled change instead of being overwritten on every tick. The
-  TRV's own native scheduling is left disabled - it would fight the
-  setpoint-sync above.
+  either side ships an incompatible update. Slots per weekday grow one at
+  a time via an "add another slot" toggle (no fixed count, no re-typing a
+  block of empty rows) - a new slot's time defaults to an hour after the
+  previous one. A day left empty carries over the most recent configured
+  day. Each day's step can also **pull** another day's whole program via
+  "copy from", and **push** its own resulting program out to other days
+  via "also apply to these days" in the same submission - setting up
+  several identical days no longer means visiting each one individually.
+  Manual adjustments hold until the next scheduled change instead of
+  being overwritten on every tick. The TRV's own native scheduling is
+  left disabled - it would fight the setpoint-sync above.
 
 ## Explicitly out of scope for this MVP
 

@@ -2,6 +2,7 @@
 from __future__ import annotations
 
 import logging
+from datetime import time as time_of_day
 from typing import Any
 
 import voluptuous as vol
@@ -45,7 +46,7 @@ from .const import (
     DOMAIN,
     MAX_SCHEDULE_SLOTS_PER_DAY,
 )
-from .controller import DAY_KEYS
+from .controller import DAY_KEYS, parse_time_string
 
 _LOGGER = logging.getLogger(__name__)
 
@@ -202,6 +203,11 @@ class BestTRVOptionsFlow(config_entries.OptionsFlow):
 
     def __init__(self, config_entry: config_entries.ConfigEntry) -> None:
         self._config_entry = config_entry
+        # Working buffer for whichever day's schedule is currently being
+        # edited - lets "add another slot" loop the same step repeatedly
+        # (growing the list one slot at a time) before the user finalizes.
+        self._working_day_key: str | None = None
+        self._working_day_slots: list[dict[str, Any]] = []
 
     def _current_options(self) -> dict[str, Any]:
         return {**self._config_entry.data, **self._config_entry.options}
@@ -298,29 +304,69 @@ class BestTRVOptionsFlow(config_entries.OptionsFlow):
     async def _async_step_schedule_day(
         self, day_key: str, user_input: dict[str, Any] | None
     ) -> FlowResult:
+        """One weekday's schedule, with dynamic slot growth and fan-out.
+
+        Existing slots stay editable (blank a slot's time to delete it).
+        One extra, always-present slot pair lets the user add one more -
+        its time defaults to an hour after the last slot, so entering a
+        run of slots means only adjusting temperature and nudging the
+        time forward, not typing each from scratch. "Add another slot"
+        re-shows this same step with the grown list instead of finalizing,
+        looping until the user leaves it off. "Copy from" pulls another
+        day's whole program in one shot; "push to" fans this day's
+        resulting program out to other days in the same submission -
+        setting up several identical days no longer means visiting each
+        one individually.
+        """
         current = self._current_options()
-        existing_slots: list[dict[str, Any]] = current.get(CONF_SCHEDULE, {}).get(day_key, [])
+
+        if self._working_day_key != day_key:
+            # Fresh visit to this day - seed the working list from what's
+            # already configured (empty for a never-touched day).
+            self._working_day_key = day_key
+            self._working_day_slots = list(current.get(CONF_SCHEDULE, {}).get(day_key, []))
+
+        # How many (time, temperature) field pairs the form we're now
+        # responding to actually showed - one per existing slot, plus one
+        # trailing "add a slot" pair.
+        shown_count = len(self._working_day_slots) + 1
 
         if user_input is not None:
             copy_from = user_input.get("copy_from_day", _COPY_FROM_NONE)
+            push_to_days: list[str] = user_input.get("push_to_days") or []
+
             if copy_from != _COPY_FROM_NONE:
-                # Copying a whole day's program takes priority over whatever
-                # is in the slot fields for this same submission - the user
-                # picked a source day precisely to avoid re-typing it.
-                new_slots = list(current.get(CONF_SCHEDULE, {}).get(copy_from, []))
+                self._working_day_slots = list(
+                    current.get(CONF_SCHEDULE, {}).get(copy_from, [])
+                )
             else:
-                new_slots = [
+                self._working_day_slots = [
                     {
                         "time": user_input[f"slot{i}_time"],
                         "temperature": user_input[f"slot{i}_temperature"],
                     }
-                    for i in range(MAX_SCHEDULE_SLOTS_PER_DAY)
+                    for i in range(shown_count)
                     if user_input.get(f"slot{i}_time") is not None
                     and user_input.get(f"slot{i}_temperature") is not None
                 ]
+
+            keep_adding = user_input.get("add_another_slot", False)
+            still_room = len(self._working_day_slots) < MAX_SCHEDULE_SLOTS_PER_DAY
+            if copy_from == _COPY_FROM_NONE and keep_adding and still_room:
+                return self._show_schedule_day_form(day_key)
+
             schedule = dict(current.get(CONF_SCHEDULE, {}))
-            schedule[day_key] = new_slots
+            schedule[day_key] = list(self._working_day_slots)
+            for target_day in push_to_days:
+                schedule[target_day] = list(self._working_day_slots)
+            self._working_day_key = None
             return self.async_create_entry(title="", data={**current, CONF_SCHEDULE: schedule})
+
+        return self._show_schedule_day_form(day_key)
+
+    def _show_schedule_day_form(self, day_key: str) -> FlowResult:
+        slots = self._working_day_slots
+        total_fields = len(slots) + 1  # existing slots + one to add
 
         schema_dict: dict[Any, Any] = {
             vol.Optional("copy_from_day", default=_COPY_FROM_NONE): selector.SelectSelector(
@@ -335,23 +381,47 @@ class BestTRVOptionsFlow(config_entries.OptionsFlow):
                     ],
                     mode=selector.SelectSelectorMode.DROPDOWN,
                 )
-            )
+            ),
         }
-        for i in range(MAX_SCHEDULE_SLOTS_PER_DAY):
-            existing = existing_slots[i] if i < len(existing_slots) else None
-            time_key = (
-                vol.Optional(f"slot{i}_time", default=existing["time"])
-                if existing
-                else vol.Optional(f"slot{i}_time")
-            )
-            temp_key = (
-                vol.Optional(f"slot{i}_temperature", default=existing["temperature"])
-                if existing
-                else vol.Optional(f"slot{i}_temperature")
-            )
+
+        for i in range(total_fields):
+            if i < len(slots):
+                time_key = vol.Optional(f"slot{i}_time", default=slots[i]["time"])
+                temp_key = vol.Optional(f"slot{i}_temperature", default=slots[i]["temperature"])
+            else:
+                # The trailing "add a slot" pair: suggest an hour after the
+                # last confirmed slot so a run of slots is mostly nudging
+                # forward, not typing each time from a blank field.
+                if slots:
+                    last_time = parse_time_string(slots[-1]["time"])
+                    suggested = time_of_day((last_time.hour + 1) % 24, last_time.minute).isoformat()
+                    time_key = vol.Optional(f"slot{i}_time", default=suggested)
+                else:
+                    time_key = vol.Optional(f"slot{i}_time")
+                temp_key = vol.Optional(f"slot{i}_temperature")
             schema_dict[time_key] = selector.TimeSelector()
             schema_dict[temp_key] = vol.Coerce(float)
 
+        schema_dict[vol.Optional("add_another_slot", default=False)] = bool
+        schema_dict[vol.Optional("push_to_days", default=[])] = selector.SelectSelector(
+            selector.SelectSelectorConfig(
+                options=[
+                    selector.SelectOptionDict(value=d, label=label)
+                    for d, label in _DAY_LABELS.items()
+                    if d != day_key
+                ],
+                multiple=True,
+                mode=selector.SelectSelectorMode.LIST,
+            )
+        )
+
+        summary = (
+            ", ".join(f"{s['time'][:5]} → {s['temperature']}°C" for s in slots)
+            if slots
+            else "(no slots yet)"
+        )
         return self.async_show_form(
-            step_id=f"schedule_{day_key}", data_schema=vol.Schema(schema_dict)
+            step_id=f"schedule_{day_key}",
+            data_schema=vol.Schema(schema_dict),
+            description_placeholders={"slots_summary": summary},
         )

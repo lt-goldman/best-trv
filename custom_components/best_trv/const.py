@@ -79,7 +79,7 @@ DEFAULT_FEED_MAX = 55.0
 DEFAULT_FEED_STEP = 0.5
 
 DEFAULT_SCHEDULE_ENABLED = False
-# Matches the Aqara E1's own native schedule convention (its
-# schedule_settings default is exactly 4 entries/day) - generous enough for
-# typical comfort/eco/away/night patterns without an unwieldy options form.
-MAX_SCHEDULE_SLOTS_PER_DAY = 4
+# A day's slots grow one at a time via the "add another slot" toggle in the
+# options flow - this is just a safety cap on the loop, not a fixed count
+# shown upfront. 12 is generous for any realistic daily pattern.
+MAX_SCHEDULE_SLOTS_PER_DAY = 12
