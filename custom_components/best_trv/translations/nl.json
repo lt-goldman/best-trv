@@ -67,6 +67,7 @@
         "title": "Schema maandag",
         "description": "Tot 4 (tijd, temperatuur)-sloten. Laat de tijd van een slot leeg om het niet te gebruiken. Het laatst gepasseerde slot geldt; een lege dag neemt het laatste slot over van de meest recente eerdere dag die er wel een heeft.",
         "data": {
+          "copy_from_day": "Schema kopiëren van dag",
           "slot0_time": "Slot 1 tijd",
           "slot0_temperature": "Slot 1 temperatuur",
           "slot1_time": "Slot 2 tijd",
@@ -81,6 +82,7 @@
         "title": "Schema dinsdag",
         "description": "Tot 4 (tijd, temperatuur)-sloten. Laat de tijd van een slot leeg om het niet te gebruiken.",
         "data": {
+          "copy_from_day": "Schema kopiëren van dag",
           "slot0_time": "Slot 1 tijd",
           "slot0_temperature": "Slot 1 temperatuur",
           "slot1_time": "Slot 2 tijd",
@@ -95,6 +97,7 @@
         "title": "Schema woensdag",
         "description": "Tot 4 (tijd, temperatuur)-sloten. Laat de tijd van een slot leeg om het niet te gebruiken.",
         "data": {
+          "copy_from_day": "Schema kopiëren van dag",
           "slot0_time": "Slot 1 tijd",
           "slot0_temperature": "Slot 1 temperatuur",
           "slot1_time": "Slot 2 tijd",
@@ -109,6 +112,7 @@
         "title": "Schema donderdag",
         "description": "Tot 4 (tijd, temperatuur)-sloten. Laat de tijd van een slot leeg om het niet te gebruiken.",
         "data": {
+          "copy_from_day": "Schema kopiëren van dag",
           "slot0_time": "Slot 1 tijd",
           "slot0_temperature": "Slot 1 temperatuur",
           "slot1_time": "Slot 2 tijd",
@@ -123,6 +127,7 @@
         "title": "Schema vrijdag",
         "description": "Tot 4 (tijd, temperatuur)-sloten. Laat de tijd van een slot leeg om het niet te gebruiken.",
         "data": {
+          "copy_from_day": "Schema kopiëren van dag",
           "slot0_time": "Slot 1 tijd",
           "slot0_temperature": "Slot 1 temperatuur",
           "slot1_time": "Slot 2 tijd",
@@ -137,6 +142,7 @@
         "title": "Schema zaterdag",
         "description": "Tot 4 (tijd, temperatuur)-sloten. Laat de tijd van een slot leeg om het niet te gebruiken.",
         "data": {
+          "copy_from_day": "Schema kopiëren van dag",
           "slot0_time": "Slot 1 tijd",
           "slot0_temperature": "Slot 1 temperatuur",
           "slot1_time": "Slot 2 tijd",
@@ -151,6 +157,7 @@
         "title": "Schema zondag",
         "description": "Tot 4 (tijd, temperatuur)-sloten. Laat de tijd van een slot leeg om het niet te gebruiken.",
         "data": {
+          "copy_from_day": "Schema kopiëren van dag",
           "slot0_time": "Slot 1 tijd",
           "slot0_temperature": "Slot 1 temperatuur",
           "slot1_time": "Slot 2 tijd",

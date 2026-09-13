@@ -67,6 +67,7 @@
         "title": "Monday schedule",
         "description": "Up to 4 (time, temperature) slots. Leave a slot's time empty to not use it. Applies whichever slot's time has most recently passed; empty days carry over the last slot from the most recent earlier day that has one.",
         "data": {
+          "copy_from_day": "Copy schedule from day",
           "slot0_time": "Slot 1 time",
           "slot0_temperature": "Slot 1 temperature",
           "slot1_time": "Slot 2 time",
@@ -81,6 +82,7 @@
         "title": "Tuesday schedule",
         "description": "Up to 4 (time, temperature) slots. Leave a slot's time empty to not use it.",
         "data": {
+          "copy_from_day": "Copy schedule from day",
           "slot0_time": "Slot 1 time",
           "slot0_temperature": "Slot 1 temperature",
           "slot1_time": "Slot 2 time",
@@ -95,6 +97,7 @@
         "title": "Wednesday schedule",
         "description": "Up to 4 (time, temperature) slots. Leave a slot's time empty to not use it.",
         "data": {
+          "copy_from_day": "Copy schedule from day",
           "slot0_time": "Slot 1 time",
           "slot0_temperature": "Slot 1 temperature",
           "slot1_time": "Slot 2 time",
@@ -109,6 +112,7 @@
         "title": "Thursday schedule",
         "description": "Up to 4 (time, temperature) slots. Leave a slot's time empty to not use it.",
         "data": {
+          "copy_from_day": "Copy schedule from day",
           "slot0_time": "Slot 1 time",
           "slot0_temperature": "Slot 1 temperature",
           "slot1_time": "Slot 2 time",
@@ -123,6 +127,7 @@
         "title": "Friday schedule",
         "description": "Up to 4 (time, temperature) slots. Leave a slot's time empty to not use it.",
         "data": {
+          "copy_from_day": "Copy schedule from day",
           "slot0_time": "Slot 1 time",
           "slot0_temperature": "Slot 1 temperature",
           "slot1_time": "Slot 2 time",
@@ -137,6 +142,7 @@
         "title": "Saturday schedule",
         "description": "Up to 4 (time, temperature) slots. Leave a slot's time empty to not use it.",
         "data": {
+          "copy_from_day": "Copy schedule from day",
           "slot0_time": "Slot 1 time",
           "slot0_temperature": "Slot 1 temperature",
           "slot1_time": "Slot 2 time",
@@ -151,6 +157,7 @@
         "title": "Sunday schedule",
         "description": "Up to 4 (time, temperature) slots. Leave a slot's time empty to not use it.",
         "data": {
+          "copy_from_day": "Copy schedule from day",
           "slot0_time": "Slot 1 time",
           "slot0_temperature": "Slot 1 temperature",
           "slot1_time": "Slot 2 time",

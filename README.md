@@ -164,9 +164,11 @@ added, install "Best TRV" from HACS like any other integration.
   depending on a separately-maintained HACS component breaks the moment
   either side ships an incompatible update. Up to 4 time/temperature slots
   per weekday; a day left empty carries over the most recent configured
-  day. Manual adjustments hold until the next scheduled change instead of
-  being overwritten on every tick. The TRV's own native scheduling is left
-  disabled - it would fight the setpoint-sync above.
+  day; each day's step has a "copy from" option to reuse another day's
+  program instead of re-entering it. Manual adjustments hold until the
+  next scheduled change instead of being overwritten on every tick. The
+  TRV's own native scheduling is left disabled - it would fight the
+  setpoint-sync above.
 
 ## Explicitly out of scope for this MVP
 

@@ -49,6 +49,17 @@ from .controller import DAY_KEYS
 
 _LOGGER = logging.getLogger(__name__)
 
+_DAY_LABELS = {
+    "mon": "Monday",
+    "tue": "Tuesday",
+    "wed": "Wednesday",
+    "thu": "Thursday",
+    "fri": "Friday",
+    "sat": "Saturday",
+    "sun": "Sunday",
+}
+_COPY_FROM_NONE = "none"
+
 
 def _guess_aux_entities(
     hass: HomeAssistant, climate_entity_id: str
@@ -291,17 +302,41 @@ class BestTRVOptionsFlow(config_entries.OptionsFlow):
         existing_slots: list[dict[str, Any]] = current.get(CONF_SCHEDULE, {}).get(day_key, [])
 
         if user_input is not None:
-            new_slots = [
-                {"time": user_input[f"slot{i}_time"], "temperature": user_input[f"slot{i}_temperature"]}
-                for i in range(MAX_SCHEDULE_SLOTS_PER_DAY)
-                if user_input.get(f"slot{i}_time") is not None
-                and user_input.get(f"slot{i}_temperature") is not None
-            ]
+            copy_from = user_input.get("copy_from_day", _COPY_FROM_NONE)
+            if copy_from != _COPY_FROM_NONE:
+                # Copying a whole day's program takes priority over whatever
+                # is in the slot fields for this same submission - the user
+                # picked a source day precisely to avoid re-typing it.
+                new_slots = list(current.get(CONF_SCHEDULE, {}).get(copy_from, []))
+            else:
+                new_slots = [
+                    {
+                        "time": user_input[f"slot{i}_time"],
+                        "temperature": user_input[f"slot{i}_temperature"],
+                    }
+                    for i in range(MAX_SCHEDULE_SLOTS_PER_DAY)
+                    if user_input.get(f"slot{i}_time") is not None
+                    and user_input.get(f"slot{i}_temperature") is not None
+                ]
             schedule = dict(current.get(CONF_SCHEDULE, {}))
             schedule[day_key] = new_slots
             return self.async_create_entry(title="", data={**current, CONF_SCHEDULE: schedule})
 
-        schema_dict: dict[Any, Any] = {}
+        schema_dict: dict[Any, Any] = {
+            vol.Optional("copy_from_day", default=_COPY_FROM_NONE): selector.SelectSelector(
+                selector.SelectSelectorConfig(
+                    options=[
+                        selector.SelectOptionDict(value=_COPY_FROM_NONE, label="Don't copy"),
+                        *[
+                            selector.SelectOptionDict(value=d, label=f"Copy from {label}")
+                            for d, label in _DAY_LABELS.items()
+                            if d != day_key
+                        ],
+                    ],
+                    mode=selector.SelectSelectorMode.DROPDOWN,
+                )
+            )
+        }
         for i in range(MAX_SCHEDULE_SLOTS_PER_DAY):
             existing = existing_slots[i] if i < len(existing_slots) else None
             time_key = (
