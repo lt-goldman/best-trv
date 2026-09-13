@@ -1,14 +1,16 @@
 # Best TRV
 
 [![hacs_badge](https://img.shields.io/badge/HACS-Custom-41BDF5.svg)](https://github.com/hacs/integration)
-[![Version](https://img.shields.io/badge/version-0.3.3-blue.svg)](https://github.com/lt-goldman/best-trv/releases)
+[![GitHub release](https://img.shields.io/github/v/release/lt-goldman/best-trv)](https://github.com/lt-goldman/best-trv/releases)
 [![Home Assistant](https://img.shields.io/badge/home%20assistant-2024.2.0%2B-41BDF5.svg)](https://www.home-assistant.io/)
 [![Open your Home Assistant instance and add this repository to HACS.](https://my.home-assistant.io/badges/hacs_repository.svg)](https://my.home-assistant.io/redirect/hacs_repository/?owner=lt-goldman&repository=best-trv&category=integration)
 
-> No public downloads/build/translation badges here on purpose - those
-> come from a public GitHub Actions/Crowdin/HACS-analytics setup this
-> private, personal repo doesn't have. Faking them with static images
-> would just be misleading.
+> The repo is public (required - official HACS does not support private
+> repositories at all, see the "Via HACS" note below). No
+> downloads/build/translation badges here: those need a public GitHub
+> Actions/Crowdin/HACS-analytics setup this personal repo doesn't have,
+> and this isn't submitted to the HACS default store. Faking them with
+> static images would just be misleading.
 
 A Home Assistant custom integration (`best_trv`) for hydronic
 setups where the **same** radiator/convector/TRV is fed either hot or cold
@@ -100,16 +102,16 @@ disabled):
 ## Installing
 
 **Via HACS (recommended for iterating - no more manual copy/restart per
-change):** the repo is private, so a GitHub personal access token needs to
-be configured under HACS's own settings first (Settings -> Devices &
-services -> HACS -> Configure) before the button above will work. Then
-either click the **"Open your Home Assistant instance and add this
-repository to HACS"** badge above, or add it manually: HACS -> the "..."
-menu (top right) -> **Custom repositories** -> URL
-`https://github.com/lt-goldman/best-trv`, category **Integration**. Once
-added, install "Best TRV" from HACS like any other integration - updates
-then show up there too, instead of a manual copy each time a new version
-is tagged.
+change):** the repo is public - official HACS
+[does not support private repositories at all](https://www.hacs.xyz/docs/faq/private_repositories/)
+(its own GitHub login mints a public-data-only token; there's no setting
+to grant it private access). Either click the **"Open your Home Assistant
+instance and add this repository to HACS"** badge above, or add it
+manually: HACS -> the "..." menu (top right) -> **Custom repositories**
+-> URL `https://github.com/lt-goldman/best-trv`, category **Integration**.
+Once added, install "Best TRV" from HACS like any other integration -
+updates then show up there too, instead of a manual copy each time a new
+version is tagged.
 
 **Manual (no HACS):**
 
@@ -255,6 +257,5 @@ particular).
 **Releasing:** bump `version` in `manifest.json`, commit, `git tag -a
 vX.Y.Z`, `git push origin master --tags`, then `gh release create vX.Y.Z`
 (HACS tracks GitHub Releases, not bare tags, for update notifications).
-Keep the `Version` badge above in sync with the same number - it's a
-static badge (the repo being private rules out a live shields.io query),
-so it only updates when edited by hand.
+The `GitHub release` badge above is live (shields.io queries the public
+repo directly) so it updates on its own - nothing to edit by hand.
