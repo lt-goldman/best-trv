@@ -421,10 +421,17 @@
       timeInput.addEventListener("change", commit);
       tempInput.addEventListener("change", commit);
 
-      const delBtn = document.createElement("i");
-      delBtn.className = "ti ti-trash";
+      // A plain inline SVG, not an icon-font class (e.g. Tabler's `ti
+      // ti-trash`) - Home Assistant's own frontend doesn't load that font,
+      // so a font-based icon here silently rendered as nothing. SVG has no
+      // such dependency: it looks the same everywhere.
+      const delBtn = document.createElement("button");
       delBtn.setAttribute("aria-label", t.delete);
-      delBtn.style.cssText = "font-size:16px;color:var(--error-color, #c46060);cursor:pointer;margin-left:auto;";
+      delBtn.title = t.delete;
+      delBtn.style.cssText =
+        "background:none;border:none;padding:4px;margin-left:auto;cursor:pointer;color:var(--error-color, #c46060);display:flex;align-items:center;";
+      delBtn.innerHTML =
+        '<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 6h18"/><path d="M8 6V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/><path d="M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6"/><path d="M10 11v6"/><path d="M14 11v6"/></svg>';
       delBtn.addEventListener("click", () => {
         this._setDay(day, slots.filter((_, i) => i !== index));
         this._editingIndex = null;
