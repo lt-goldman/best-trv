@@ -273,13 +273,20 @@
         addSeg((start / 1440) * 100, pct, segColor(slot.temperature, tempMin, tempMax));
       });
       slots.forEach((slot, i) => {
+        // A wider, invisible hit-area (14px) around the thin 4px visual
+        // line - the visual marker alone is too thin to reliably tap on a
+        // touchscreen, and even a mouse click has some slack.
         const marker = document.createElement("div");
         marker.dataset.marker = "1";
         marker.title = slot.time.slice(0, 5) + " → " + slot.temperature + "°C";
         marker.style.cssText =
-          "position:absolute;top:-2px;bottom:-2px;left:" +
+          "position:absolute;top:-6px;bottom:-6px;left:" +
           (toMinutes(slot.time) / 1440) * 100 +
-          "%;width:4px;margin-left:-2px;background:#fff;border-radius:2px;cursor:grab;box-shadow:0 0 0 1px rgba(0,0,0,.3);";
+          "%;width:14px;margin-left:-7px;cursor:grab;display:flex;align-items:center;justify-content:center;";
+        const handle = document.createElement("div");
+        handle.style.cssText =
+          "width:4px;height:calc(100% - 8px);background:#fff;border-radius:2px;box-shadow:0 0 0 1px rgba(0,0,0,.3);pointer-events:none;";
+        marker.appendChild(handle);
         marker.addEventListener("pointerdown", (e) => this._startDrag(e, day, i, bar, slots));
         marker.addEventListener("click", (e) => {
           e.stopPropagation();
@@ -300,11 +307,20 @@
       e.stopPropagation();
       const marker = e.currentTarget;
       marker.setPointerCapture(e.pointerId);
+      const startX = e.clientX;
+      // A real mouse/trackpad reports a pixel or two of movement on
+      // almost every plain click - without a deadzone, that movement got
+      // treated as "the user is dragging", which committed a near-zero
+      // time change AND suppressed the click that should have opened the
+      // slot editor. Below this threshold nothing happens yet; crossing
+      // it is what actually starts the visual drag.
+      const DRAG_THRESHOLD_PX = 4;
       this._dragging = { day, index, marker, barEl, slots: slots.map((s) => ({ ...s })), moved: false };
 
       const onMove = (ev) => {
         const d = this._dragging;
         if (!d) return;
+        if (!d.moved && Math.abs(ev.clientX - startX) < DRAG_THRESHOLD_PX) return;
         d.moved = true;
         const rect = d.barEl.getBoundingClientRect();
         let pct = (ev.clientX - rect.left) / rect.width;
