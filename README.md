@@ -229,6 +229,16 @@ reload, so an edit shows up on the card instantly.
   write there could crash entity setup instead of just being retried.
   `commands_pending` in the entity's attributes shows how many commands
   are currently backing off.
+- **A config-entry reload doesn't re-push an unchanged feed temperature.**
+  Editing the schedule (from the card) or saving Tuning both go through
+  `hass.config_entries.async_update_entry`, which tears the entity down
+  and rebuilds it - within the same Home Assistant process, not a
+  restart. The min-delta/forced-refresh throttle's own memory of what
+  was last sent is recovered from `hass.data` across exactly that kind
+  of reload, so a rebuilt entity doesn't treat an unchanged value as
+  brand new and write it to a battery-powered TRV for no reason. A
+  genuine HA restart clears `hass.data` entirely, so a true cold start
+  still pushes immediately, same as always.
 
 ## Explicitly out of scope for this MVP
 

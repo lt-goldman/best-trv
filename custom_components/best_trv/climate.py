@@ -215,7 +215,21 @@ class BestTRV(ClimateEntity, RestoreEntity):
         self._changeover = ChangeoverDebouncer(debounce_seconds=self._debounce_seconds)
         # climate_entity_id -> (last value sent, monotonic timestamp) - the
         # min-delta/forced-refresh throttle for feed-temperature pushes.
-        self._last_sent: dict[str, tuple[float, float]] = {}
+        #
+        # Recovered from hass.data rather than always starting empty: a
+        # config-entry reload (triggered by a schedule-card edit, or a
+        # Tuning save) tears this whole object down and rebuilds it from
+        # scratch within the SAME running Home Assistant process - without
+        # this, the fresh instance has no memory of what was already sent
+        # moments ago, so should_push_feed_temperature's "always push the
+        # first value" rule fires every single time, pushing an unchanged
+        # setpoint to a battery-powered TRV for no reason. A genuine HA
+        # restart clears hass.data entirely, so a true cold start still
+        # gets its normal fresh, immediate push - only a same-process
+        # reload benefits from this.
+        self._last_sent: dict[str, tuple[float, float]] = dict(
+            hass.data.setdefault(DOMAIN, {}).get(entry.entry_id, {}).get("last_sent", {})
+        )
         # Retry-with-backoff for failed commands (enable, setpoint, feed
         # temperature) - see controller.CommandQueue. Keyed per adapter so
         # one TRV's failure/backoff never blocks another's.
@@ -279,12 +293,25 @@ class BestTRV(ClimateEntity, RestoreEntity):
             )
         )
 
-        await self._async_update_control(force=True)
+        # NOT force=True: that would unconditionally re-push the feed
+        # temperature regardless of what _last_sent (just recovered above,
+        # from hass.data, if this is a same-process reload rather than a
+        # true cold start) already knows - defeating the whole point of
+        # recovering it. should_push_feed_temperature's own "always push
+        # the first value" rule (last_sent is None) still covers a genuine
+        # cold start correctly without needing an explicit override here.
+        await self._async_update_control(force=False)
 
     async def async_will_remove_from_hass(self) -> None:
         for remove in self._remove_listeners:
             remove()
         self._remove_listeners.clear()
+        # Survives a same-process config-entry reload (see __init__) so the
+        # rebuilt entity doesn't re-push an unchanged feed temperature to a
+        # battery-powered TRV just because it forgot it already did.
+        self.hass.data.setdefault(DOMAIN, {}).setdefault(self._entry.entry_id, {})[
+            "last_sent"
+        ] = self._last_sent
 
     # -- HA entity properties ---------------------------------------------
 
