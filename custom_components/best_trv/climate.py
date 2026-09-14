@@ -515,11 +515,21 @@ class BestTRV(ClimateEntity, RestoreEntity):
         window/door sensor would work exactly the same way) is active is
         simpler and more correct than trying to model its effect on the
         mirrored-temperature math.
+
+        suspend_active_value is a comma-separated list, not a single
+        value - a simple binary_sensor/switch only ever needs one ("on"),
+        but a real AC unit's own climate entity typically reports several
+        distinct "actually conditioning" states (e.g. heat/cool/heat_cool/
+        dry, as opposed to off/fan_only), and this needs to match any of
+        them, not force a choice of just one.
         """
         if not self._suspend_sensor_entity_id:
             return False
         state = self.hass.states.get(self._suspend_sensor_entity_id)
-        return state is not None and state.state == self._suspend_active_value
+        if state is None:
+            return False
+        active_values = {v.strip() for v in self._suspend_active_value.split(",") if v.strip()}
+        return state.state in active_values
 
     async def _async_sync_enabled(self) -> None:
         """Push our on/off state to every adapter, retried the same way."""

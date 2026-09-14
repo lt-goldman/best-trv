@@ -182,9 +182,12 @@ reload, so an edit shows up on the card instantly.
 - **An optional "stand-down" sensor lets Best TRV yield to something else
   already conditioning the room** - a portable/split AC unit, or (the
   same mechanism, not yet its own dedicated feature) an open window/door
-  sensor. Point it at any entity plus the state value that means "stand
-  down"; while that's true, every TRV in the room is turned off, exactly
-  like the user picking `off` themselves, without actually touching that
+  sensor. Point it at any entity plus the state value(s) that mean "stand
+  down" (comma-separated if there's more than one - a real AC's own
+  climate entity typically has several "actually conditioning" modes,
+  e.g. `heat,cool,heat_cool,dry`, as opposed to `off`/`fan_only`); while
+  any of those match, every TRV in the room is turned off, exactly like
+  the user picking `off` themselves, without actually touching that
   selection - AUTO resumes on its own the moment the condition clears.
   This exists because two uncoordinated controllers pulling the same room
   in different (or even the same) direction just means audible valve

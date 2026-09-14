@@ -11,11 +11,11 @@
           "changeover_sensor_entity_id": "Heating/cooling changeover sensor",
           "cooling_active_value": "Sensor state that means \"cooling active\"",
           "suspend_sensor_entity_id": "Stand-down sensor (optional)",
-          "suspend_active_value": "Sensor state that means \"stand down\""
+          "suspend_active_value": "Sensor state(s) that mean \"stand down\""
         },
         "data_description": {
           "suspend_sensor_entity_id": "Any entity - a portable/split AC unit, a window/door sensor, anything with a state that means something else is already conditioning this room. Leave empty to not use this.",
-          "suspend_active_value": "The state value above that means Best TRV should turn this room's TRV(s) off rather than fight whatever else is active."
+          "suspend_active_value": "The state value(s) above that mean Best TRV should turn this room's TRV(s) off rather than fight whatever else is active. Comma-separated if there's more than one (e.g. a climate entity's own heat,cool,heat_cool,dry modes)."
         }
       },
       "trv_mapping": {
@@ -61,11 +61,11 @@
           "debounce_seconds": "Changeover debounce (seconds)",
           "cooling_active_value": "Sensor state that means \"cooling active\"",
           "suspend_sensor_entity_id": "Stand-down sensor (optional)",
-          "suspend_active_value": "Sensor state that means \"stand down\""
+          "suspend_active_value": "Sensor state(s) that mean \"stand down\""
         },
         "data_description": {
           "suspend_sensor_entity_id": "Any entity - a portable/split AC unit, a window/door sensor, anything with a state that means something else is already conditioning this room. Leave empty to not use this.",
-          "suspend_active_value": "The state value above that means Best TRV should turn this room's TRV(s) off rather than fight whatever else is active."
+          "suspend_active_value": "The state value(s) above that mean Best TRV should turn this room's TRV(s) off rather than fight whatever else is active. Comma-separated if there's more than one (e.g. a climate entity's own heat,cool,heat_cool,dry modes)."
         }
       },
       "schedule_toggle": {

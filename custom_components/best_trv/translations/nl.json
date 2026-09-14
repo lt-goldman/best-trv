@@ -11,11 +11,11 @@
           "changeover_sensor_entity_id": "Verwarmen/koelen-omschakelsensor",
           "cooling_active_value": "Sensorwaarde die \"koeling actief\" betekent",
           "suspend_sensor_entity_id": "Onderdruk-sensor (optioneel)",
-          "suspend_active_value": "Sensorwaarde die \"onderdrukken\" betekent"
+          "suspend_active_value": "Sensorwaarde(n) die \"onderdrukken\" betekenen"
         },
         "data_description": {
           "suspend_sensor_entity_id": "Een willekeurige entity - een airco, een raam/deur-sensor, alles met een status die betekent dat iets anders deze kamer al verwarmt/koelt. Leeg laten om dit niet te gebruiken.",
-          "suspend_active_value": "De status hierboven die betekent dat Best TRV de TRV('s) in deze kamer moet uitzetten in plaats van tegen die andere bron in te werken."
+          "suspend_active_value": "De status(sen) hierboven die betekenen dat Best TRV de TRV('s) in deze kamer moet uitzetten in plaats van tegen die andere bron in te werken. Kommagescheiden als het er meerdere zijn (bijvoorbeeld de eigen heat,cool,heat_cool,dry-standen van een climate-entity)."
         }
       },
       "trv_mapping": {
@@ -61,11 +61,11 @@
           "debounce_seconds": "Ontdender omschakelsensor (seconden)",
           "cooling_active_value": "Sensorwaarde die \"koeling actief\" betekent",
           "suspend_sensor_entity_id": "Onderdruk-sensor (optioneel)",
-          "suspend_active_value": "Sensorwaarde die \"onderdrukken\" betekent"
+          "suspend_active_value": "Sensorwaarde(n) die \"onderdrukken\" betekenen"
         },
         "data_description": {
           "suspend_sensor_entity_id": "Een willekeurige entity - een airco, een raam/deur-sensor, alles met een status die betekent dat iets anders deze kamer al verwarmt/koelt. Leeg laten om dit niet te gebruiken.",
-          "suspend_active_value": "De status hierboven die betekent dat Best TRV de TRV('s) in deze kamer moet uitzetten in plaats van tegen die andere bron in te werken."
+          "suspend_active_value": "De status(sen) hierboven die betekenen dat Best TRV de TRV('s) in deze kamer moet uitzetten in plaats van tegen die andere bron in te werken. Kommagescheiden als het er meerdere zijn (bijvoorbeeld de eigen heat,cool,heat_cool,dry-standen van een climate-entity)."
         }
       },
       "schedule_toggle": {
