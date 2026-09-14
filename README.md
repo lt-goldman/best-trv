@@ -131,6 +131,34 @@ added, install "Best TRV" from HACS like any other integration.
    choice is its own form; saving one closes the dialog, so setting up a
    full week means reopening Configure once per day (see README's design
    notes for why).
+7. For a nicer way to edit the weekly schedule, add the **dashboard card**
+   (see below) instead - it edits the exact same schedule, just as a
+   visual weekly bar right on your dashboard.
+
+## Dashboard card
+
+Best TRV ships its own Lovelace card - no separate HACS "plugin" install,
+no manual resource URL to add. It's registered automatically the moment
+the integration itself is installed (Home Assistant restart required
+after installing/updating, since it's registered once at startup - see
+Development below).
+
+To add it: edit a dashboard -> **Add card** -> search for **"Best TRV
+schedule"**, or add it via YAML:
+
+```yaml
+type: custom:best-trv-schedule-card
+entity: climate.your_room
+```
+
+Each weekday shows as a horizontal bar, colored warm-to-cool by that
+slot's temperature. Drag a slot's marker to change its time; tap it to
+open a small panel for its temperature or to delete it. "Add slot",
+"Copy from" another day, and "Push to" other days work the same as in
+the config-flow editor - both write the exact same schedule, through
+three dedicated services (`best_trv.set_schedule_day`,
+`set_schedule_days`, `set_schedule_enabled`) rather than a config-entry
+reload, so an edit shows up on the card instantly.
 
 ## Design decisions worth knowing about
 
@@ -178,6 +206,16 @@ added, install "Best TRV" from HACS like any other integration.
   currently says immediately, instead of waiting for the next transition.
   The TRV's own native scheduling is left disabled - it would fight the
   setpoint-sync above.
+- **The dashboard card and the config-flow editor are two front ends on
+  the same schedule.** Both read and write the identical `schedule`
+  config-entry key; the card just does it live, through
+  `set_schedule_day`/`set_schedule_days`/`set_schedule_enabled` (validated
+  by a voluptuous schema, same as any other HA service) instead of an
+  options-flow submission. Those writes update the entity's own state
+  immediately and only *then* persist to the config entry - a config-entry
+  update always triggers Home Assistant's own reload of the whole entity,
+  so doing it the other way round would mean every drag or tap on the
+  card visibly flickers the whole entity for no reason.
 - **Failed commands are retried with backoff, not sent once and
   forgotten.** Enabling/disabling a TRV, syncing its setpoint, and
   pushing the feed temperature each go through a small per-adapter
@@ -198,14 +236,13 @@ itself in the field:
 - PID / TPI / MPC / direct valve-position control (`DirectValveAdapter`).
 - Presets (comfort/eco/away/sleep).
 - Window/door-open suspend.
-- Weather compensation, AI-learning.
-- **A custom Lovelace card with a drag-based schedule time-bar.** The
-  schedule *engine* is built (see above); a polished visual editor like
-  the HACS scheduler-card is a genuinely separate project (its own
-  JS/TS frontend build pipeline, none of which this integration has
-  today) and was deliberately deferred rather than rushed alongside the
-  backend. The current plain-form UI can be replaced later without
-  touching `controller.py` at all.
+- Weather compensation, AI-learning (optimum start, feed-forward outdoor
+  compensation) - a real future direction, not ruled out, just deferred
+  until the current control loop and the dashboard card have both proven
+  themselves in the field.
+- A visual config-flow card editor (`getConfigElement()`) for the
+  dashboard card itself - it's currently YAML/picker-only, which is
+  enough to add it, just not to configure it visually.
 
 ## Development
 
@@ -220,6 +257,28 @@ without a Home Assistant install. `climate.py`, `config_flow.py` and
 `adapters/aqara_e1_z2m.py` are checked with `ruff --select=F,E9` for
 syntax/undefined-name errors, and have been verified end-to-end against a
 real running installation.
+
+**Dashboard card** (`custom_components/best_trv/www/best-trv-schedule-card.js`):
+a deliberately buildless vanilla-JS custom element - no bundler,
+TypeScript, or npm dependency, registered once at Home Assistant startup
+via `async_setup` in `__init__.py` (`hass.http.async_register_static_paths`
++ `homeassistant.components.frontend.add_extra_js_url`), so a **full HA
+restart** (not just a config-entry reload) is needed after installing or
+updating it for changes to actually load. Its draggable-marker interaction
+is inspired by the (GPLv3) `nielsfaber/scheduler-card`'s UX, but every
+line is original - no source from that project was copied or adapted, so
+this card carries none of that license's copyleft obligations.
+
+**Regression path this project has actually hit twice:** any `step_id`
+returned from `async_show_menu`/`async_show_form` in `config_flow.py`
+needs a matching `async_step_<id>` method on the flow handler - Home
+Assistant validates that for *every* result a step returns, not only for
+steps navigated to by name (`data_entry_flow.FlowManager._raise_if_step_does_not_exist`,
+called on `result["step_id"]`). Missing that produced a released,
+completely broken `UnknownStep` crash across two versions (0.7.0, 0.7.1)
+before being caught. When touching `config_flow.py`, verify new flow
+logic against the actual installed `homeassistant` package (`pip install
+homeassistant` in a throwaway venv) rather than by inspection alone.
 
 **Releasing:** bump `version` in `manifest.json`, commit, `git tag -a
 vX.Y.Z`, `git push origin master --tags`, then `gh release create vX.Y.Z`

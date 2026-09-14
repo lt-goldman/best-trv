@@ -3,3 +3,61 @@ resync_schedule:
     entity:
       domain: climate
       integration: best_trv
+
+set_schedule_day:
+  target:
+    entity:
+      domain: climate
+      integration: best_trv
+  fields:
+    day:
+      required: true
+      selector:
+        select:
+          options:
+            - "mon"
+            - "tue"
+            - "wed"
+            - "thu"
+            - "fri"
+            - "sat"
+            - "sun"
+    slots:
+      required: true
+      selector:
+        object:
+
+set_schedule_days:
+  target:
+    entity:
+      domain: climate
+      integration: best_trv
+  fields:
+    days:
+      required: true
+      selector:
+        select:
+          multiple: true
+          options:
+            - "mon"
+            - "tue"
+            - "wed"
+            - "thu"
+            - "fri"
+            - "sat"
+            - "sun"
+    slots:
+      required: true
+      selector:
+        object:
+
+set_schedule_enabled:
+  target:
+    entity:
+      domain: climate
+      integration: best_trv
+  fields:
+    enabled:
+      required: true
+      selector:
+        boolean:

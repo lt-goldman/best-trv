@@ -300,6 +300,44 @@
     "resync_schedule": {
       "name": "Resync schedule",
       "description": "Immediately re-apply whatever the weekly schedule currently says for this entity, discarding any manual temperature override without waiting for the next scheduled transition."
+    },
+    "set_schedule_day": {
+      "name": "Set schedule day",
+      "description": "Replace one weekday's schedule slots. Used by the Best TRV schedule card - replaces the whole day in one call rather than editing a single slot in place.",
+      "fields": {
+        "day": {
+          "name": "Day",
+          "description": "Which weekday to replace."
+        },
+        "slots": {
+          "name": "Slots",
+          "description": "The day's full new list of {time, temperature} slots."
+        }
+      }
+    },
+    "set_schedule_days": {
+      "name": "Set schedule days",
+      "description": "Apply the same schedule slots to several weekdays at once, in a single atomic write. Used by the Best TRV schedule card's \"push to other days\" action.",
+      "fields": {
+        "days": {
+          "name": "Days",
+          "description": "Which weekdays to replace."
+        },
+        "slots": {
+          "name": "Slots",
+          "description": "The full new list of {time, temperature} slots to apply to every selected day."
+        }
+      }
+    },
+    "set_schedule_enabled": {
+      "name": "Set schedule enabled",
+      "description": "Turn the weekly schedule on or off.",
+      "fields": {
+        "enabled": {
+          "name": "Enabled",
+          "description": "Whether the schedule should be active."
+        }
+      }
     }
   }
 }

@@ -83,3 +83,11 @@ DEFAULT_SCHEDULE_ENABLED = False
 # options flow - this is just a safety cap on the loop, not a fixed count
 # shown upfront. 12 is generous for any realistic daily pattern.
 MAX_SCHEDULE_SLOTS_PER_DAY = 12
+
+# -- bundled dashboard card ---------------------------------------------
+
+# Registered once (in __init__.async_setup) via HA's own
+# add_extra_js_url/StaticPathConfig - the schedule card ships inside the
+# integration itself, no separate HACS "plugin" install needed.
+CARD_FILENAME = "best-trv-schedule-card.js"
+CARD_URL = f"/best_trv_files/{CARD_FILENAME}"

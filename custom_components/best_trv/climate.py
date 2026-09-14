@@ -12,12 +12,14 @@ import time
 from datetime import timedelta
 from typing import Any
 
+import voluptuous as vol
+
 from homeassistant.components.climate import ClimateEntity
 from homeassistant.components.climate.const import ClimateEntityFeature, HVACMode
 from homeassistant.config_entries import ConfigEntry
 from homeassistant.const import ATTR_TEMPERATURE, STATE_UNAVAILABLE, STATE_UNKNOWN, UnitOfTemperature
 from homeassistant.core import Event, HomeAssistant, callback
-from homeassistant.helpers import entity_platform
+from homeassistant.helpers import config_validation as cv, entity_platform
 from homeassistant.helpers.device_registry import DeviceInfo
 from homeassistant.helpers.entity_platform import AddEntitiesCallback
 from homeassistant.helpers.event import async_track_state_change_event, async_track_time_interval
@@ -49,9 +51,11 @@ from .const import (
     DEFAULT_FEED_MIN,
     DEFAULT_SCHEDULE_ENABLED,
     DOMAIN,
+    MAX_SCHEDULE_SLOTS_PER_DAY,
     UPDATE_TICK_SECONDS,
 )
 from .controller import (
+    DAY_KEYS,
     ChangeoverDebouncer,
     CommandQueue,
     HvacAction,
@@ -67,6 +71,17 @@ from .controller import (
 
 _LOGGER = logging.getLogger(__name__)
 
+# Shared by set_schedule_day/set_schedule_days: each slot is validated and
+# coerced here (cv.time raises a clean vol.Invalid on a bad "HH:MM[:SS]"
+# string, matching how HA's own config/options flows report bad input,
+# instead of the entity method having to catch a raw ValueError) rather
+# than by hand in the service methods below - one schema, provably correct
+# for both services instead of duplicated ad-hoc checks.
+_SLOT_SCHEMA = vol.All(
+    [{vol.Required("time"): cv.time, vol.Required("temperature"): vol.Coerce(float)}],
+    vol.Length(max=MAX_SCHEDULE_SLOTS_PER_DAY),
+)
+
 
 async def async_setup_entry(
     hass: HomeAssistant, entry: ConfigEntry, async_add_entities: AddEntitiesCallback
@@ -75,6 +90,21 @@ async def async_setup_entry(
 
     platform = entity_platform.async_get_current_platform()
     platform.async_register_entity_service("resync_schedule", {}, "async_resync_schedule")
+    platform.async_register_entity_service(
+        "set_schedule_day",
+        {vol.Required("day"): vol.In(DAY_KEYS), vol.Required("slots"): _SLOT_SCHEMA},
+        "async_set_schedule_day",
+    )
+    platform.async_register_entity_service(
+        "set_schedule_days",
+        {vol.Required("days"): [vol.In(DAY_KEYS)], vol.Required("slots"): _SLOT_SCHEMA},
+        "async_set_schedule_days",
+    )
+    platform.async_register_entity_service(
+        "set_schedule_enabled",
+        {vol.Required("enabled"): cv.boolean},
+        "async_set_schedule_enabled",
+    )
 
 
 class BestTRV(ClimateEntity, RestoreEntity):
@@ -146,9 +176,16 @@ class BestTRV(ClimateEntity, RestoreEntity):
         self._schedule_enabled: bool = options.get(
             CONF_SCHEDULE_ENABLED, data.get(CONF_SCHEDULE_ENABLED, DEFAULT_SCHEDULE_ENABLED)
         )
-        self._schedule: dict[str, list[ScheduleSlot]] = parse_schedule_config(
+        # The raw, JSON-safe shape (exactly what's stored in the config
+        # entry) - kept alongside the parsed self._schedule below as the
+        # single source both are derived from, so the schedule card's
+        # "schedule" attribute never needs a separate "serialize
+        # ScheduleSlot back to a dict" path that could drift out of sync
+        # with parse_schedule_config.
+        self._schedule_raw: dict[str, list[dict[str, Any]]] = dict(
             options.get(CONF_SCHEDULE, data.get(CONF_SCHEDULE, {}))
         )
+        self._schedule: dict[str, list[ScheduleSlot]] = parse_schedule_config(self._schedule_raw)
         # Identity of the schedule slot last applied to target_temperature.
         # Only re-applying when this changes (a real transition) is what
         # lets a manual adjustment hold until the next scheduled change,
@@ -293,6 +330,13 @@ class BestTRV(ClimateEntity, RestoreEntity):
                 if self._last_applied_schedule_slot is not None
                 else None
             ),
+            # For the schedule card (custom_components/best_trv/www/) - the
+            # raw JSON-safe weekly schedule plus the temperature range it
+            # should offer, so the card never has to guess or duplicate the
+            # heat/cool min/max already configured here.
+            "schedule": self._schedule_raw,
+            "schedule_temp_min": min(self._heat_min, self._cool_min),
+            "schedule_temp_max": max(self._heat_max, self._cool_max),
         }
 
     # -- HA entity commands -----------------------------------------------
@@ -354,6 +398,55 @@ class BestTRV(ClimateEntity, RestoreEntity):
         await self._apply_schedule_slot(active)
         self.async_write_ha_state()
         await self._async_update_control(force=True)
+
+    async def async_set_schedule_day(self, day: str, slots: list[dict[str, Any]]) -> None:
+        """Replace one day's schedule slots (called by the schedule card)."""
+        await self._async_write_schedule_days({day: slots})
+
+    async def async_set_schedule_days(self, days: list[str], slots: list[dict[str, Any]]) -> None:
+        """Apply the same slot list to several days in one atomic write.
+
+        Used for the card's "push to other days" action - looping
+        `async_set_schedule_day` per day would lose the atomicity the
+        config-flow wizard's equivalent step already had (a dropped
+        connection mid-loop would leave the week half-pushed) and would
+        trigger one reload per day instead of one for the whole change.
+        """
+        await self._async_write_schedule_days({day: slots for day in days})
+
+    async def _async_write_schedule_days(
+        self, updates: dict[str, list[dict[str, Any]]]
+    ) -> None:
+        raw_schedule = dict(self._schedule_raw)
+        for day, slots in updates.items():
+            raw_schedule[day] = [
+                {"time": slot["time"].isoformat(), "temperature": slot["temperature"]}
+                for slot in slots
+            ]
+        new_options = {**self._entry.data, **self._entry.options, CONF_SCHEDULE: raw_schedule}
+
+        # Update in-memory state and the entity's own state first, so the
+        # card sees the change instantly - hass.config_entries.async_update_entry
+        # is a plain @callback (not awaitable) that only *schedules* the
+        # config-entry-reload update listener as a separate background
+        # task, and diffs by value first (identical options -> no reload at
+        # all). No need to wait for, or trigger a visible flicker from,
+        # that reload just to make an edit "stick" on screen.
+        self._schedule_raw = raw_schedule
+        self._schedule = parse_schedule_config(raw_schedule)
+        self.async_write_ha_state()
+        self.hass.config_entries.async_update_entry(self._entry, options=new_options)
+
+    async def async_set_schedule_enabled(self, enabled: bool) -> None:
+        """Toggle the schedule on/off (called by the schedule card)."""
+        new_options = {
+            **self._entry.data,
+            **self._entry.options,
+            CONF_SCHEDULE_ENABLED: enabled,
+        }
+        self._schedule_enabled = enabled
+        self.async_write_ha_state()
+        self.hass.config_entries.async_update_entry(self._entry, options=new_options)
 
     async def _apply_schedule_slot(self, active: tuple[str, ScheduleSlot]) -> None:
         self._last_applied_schedule_slot = active

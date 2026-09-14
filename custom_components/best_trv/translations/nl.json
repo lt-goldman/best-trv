@@ -300,6 +300,44 @@
     "resync_schedule": {
       "name": "Schema hersynchroniseren",
       "description": "Pas meteen toe wat het weekschema nu voor deze entiteit zegt, en negeer daarbij een handmatige temperatuur-override zonder op de eerstvolgende geplande overgang te wachten."
+    },
+    "set_schedule_day": {
+      "name": "Schemadag instellen",
+      "description": "Vervang de sloten van één weekdag. Wordt gebruikt door de Best TRV-schemakaart - vervangt de hele dag in één keer in plaats van één slot afzonderlijk te bewerken.",
+      "fields": {
+        "day": {
+          "name": "Dag",
+          "description": "Welke weekdag te vervangen."
+        },
+        "slots": {
+          "name": "Sloten",
+          "description": "De volledige nieuwe lijst {tijd, temperatuur}-sloten voor deze dag."
+        }
+      }
+    },
+    "set_schedule_days": {
+      "name": "Schemadagen instellen",
+      "description": "Pas dezelfde schemasloten in één atomaire schrijfactie toe op meerdere weekdagen tegelijk. Wordt gebruikt door de \"ook toepassen op andere dagen\"-actie van de Best TRV-schemakaart.",
+      "fields": {
+        "days": {
+          "name": "Dagen",
+          "description": "Welke weekdagen te vervangen."
+        },
+        "slots": {
+          "name": "Sloten",
+          "description": "De volledige nieuwe lijst {tijd, temperatuur}-sloten om op elke geselecteerde dag toe te passen."
+        }
+      }
+    },
+    "set_schedule_enabled": {
+      "name": "Schema in-/uitschakelen",
+      "description": "Zet het weekschema aan of uit.",
+      "fields": {
+        "enabled": {
+          "name": "Ingeschakeld",
+          "description": "Of het schema actief moet zijn."
+        }
+      }
     }
   }
 }
