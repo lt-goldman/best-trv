@@ -59,6 +59,7 @@ _DAY_LABELS = {
     "sat": "Saturday",
     "sun": "Sunday",
 }
+_COPY_FROM_NONE = "none"
 
 
 def _guess_aux_entities(
@@ -192,32 +193,21 @@ class BestTRVOptionsFlow(config_entries.OptionsFlow):
 
     A menu rather than one giant form: "Tuning" holds the original
     heat/cool/timing fields, "Schedule on/off" is a single toggle, and each
-    weekday opens its own menu (see `_show_day_menu`) with a button per
-    existing slot, "Add another slot" (immediate, no form), "Copy from
-    another day", "Push to other days", and "Done" - only "Done" actually
-    writes anything back and closes the dialog, so a day can be built up
-    over several button taps without reopening "Configure" each time.
-    Finishing a whole week still means visiting each day's menu once and
-    hitting "Done" on it, a known trade-off of the plain config-flow
-    approach chosen over a custom Lovelace card (see README).
+    weekday is its own step with up to MAX_SCHEDULE_SLOTS_PER_DAY (time,
+    temperature) pairs. Saving any one step applies immediately (each
+    `async_create_entry` closes this dialog per HA's options-flow model) -
+    setting up a full week means reopening "Configure" once per day, a
+    known trade-off of the plain-form approach chosen over a custom
+    Lovelace card (see README).
     """
 
     def __init__(self, config_entry: config_entries.ConfigEntry) -> None:
         self._config_entry = config_entry
         # Working buffer for whichever day's schedule is currently being
-        # edited via the day menu below - a fresh visit seeds it from
-        # what's already configured, and it's only written back on
-        # "Done".
+        # edited - lets "add another slot" loop the same step repeatedly
+        # (growing the list one slot at a time) before the user finalizes.
         self._working_day_key: str | None = None
         self._working_day_slots: list[dict[str, Any]] = []
-        # Staged "also push to these days" selection for the day currently
-        # being edited - applied together with the day itself on "Done".
-        self._working_push_to_days: list[str] = []
-        # Which slot the shared "edit_slot" mini-form is currently acting
-        # on - set right before showing it, since the form itself is
-        # re-entered on submission under one common step_id regardless of
-        # which "Edit slot N" menu button was originally clicked.
-        self._editing_slot_index: int = 0
 
     def _current_options(self) -> dict[str, Any]:
         return {**self._config_entry.data, **self._config_entry.options}
@@ -288,101 +278,94 @@ class BestTRVOptionsFlow(config_entries.OptionsFlow):
         )
         return self.async_show_form(step_id="schedule_toggle", data_schema=schema)
 
-    # -- one step per weekday, all delegating to the same menu -------------
+    # -- one step per weekday, all delegating to the same handler ----------
 
     async def async_step_schedule_mon(self, user_input=None) -> FlowResult:
-        return await self._async_enter_day("mon")
+        return await self._async_step_schedule_day("mon", user_input)
 
     async def async_step_schedule_tue(self, user_input=None) -> FlowResult:
-        return await self._async_enter_day("tue")
+        return await self._async_step_schedule_day("tue", user_input)
 
     async def async_step_schedule_wed(self, user_input=None) -> FlowResult:
-        return await self._async_enter_day("wed")
+        return await self._async_step_schedule_day("wed", user_input)
 
     async def async_step_schedule_thu(self, user_input=None) -> FlowResult:
-        return await self._async_enter_day("thu")
+        return await self._async_step_schedule_day("thu", user_input)
 
     async def async_step_schedule_fri(self, user_input=None) -> FlowResult:
-        return await self._async_enter_day("fri")
+        return await self._async_step_schedule_day("fri", user_input)
 
     async def async_step_schedule_sat(self, user_input=None) -> FlowResult:
-        return await self._async_enter_day("sat")
+        return await self._async_step_schedule_day("sat", user_input)
 
     async def async_step_schedule_sun(self, user_input=None) -> FlowResult:
-        return await self._async_enter_day("sun")
+        return await self._async_step_schedule_day("sun", user_input)
 
-    async def _async_enter_day(self, day_key: str) -> FlowResult:
-        """First arrival at a weekday: seed the working buffers and show its menu."""
+    async def _async_step_schedule_day(
+        self, day_key: str, user_input: dict[str, Any] | None
+    ) -> FlowResult:
+        """One weekday's schedule, with dynamic slot growth and fan-out.
+
+        Only the already-confirmed slots are ever shown as fields (blank a
+        slot's time to delete it) - there is no extra, always-visible
+        "next slot" pair inviting confusion about whether it's real yet.
+        Checking "Add another slot" and submitting appends one new slot
+        (time an hour after the last one, temperature copied from it, both
+        then freely editable) and re-shows this same step with it as a
+        genuine row - nothing appears until that checkbox is actually used.
+        "Copy from" pulls another day's whole program in one shot; "push
+        to" fans this day's resulting program out to other days in the
+        same submission - setting up several identical days no longer
+        means visiting each one individually.
+        """
+        current = self._current_options()
+
         if self._working_day_key != day_key:
-            current = self._current_options()
+            # Fresh visit to this day - seed the working list from what's
+            # already configured (empty for a never-touched day).
             self._working_day_key = day_key
             self._working_day_slots = list(current.get(CONF_SCHEDULE, {}).get(day_key, []))
-            self._working_push_to_days = []
-        return self._show_day_menu()
 
-    def _show_day_menu(self) -> FlowResult:
-        """The one-tap menu for the day currently being edited.
+        # How many (time, temperature) field pairs the form we're now
+        # responding to actually showed - exactly one per existing slot,
+        # no trailing extra.
+        shown_count = len(self._working_day_slots)
 
-        Every action is a direct button - "Add another slot" appends and
-        redraws this same menu immediately, with no intervening form to
-        confirm. Editing an existing slot, copying from another day, and
-        picking which days to push to are each still a (much smaller) form
-        of their own, since those genuinely need input; "Done" is what
-        actually writes the result back to the config entry.
+        if user_input is not None:
+            copy_from = user_input.get("copy_from_day", _COPY_FROM_NONE)
+            push_to_days: list[str] = user_input.get("push_to_days") or []
 
-        One static step_id per day (`day_menu_mon`, ...) rather than a
-        single shared "day_menu" - this menu deliberately carries no
-        `description_placeholders` (unlike the forms below, which have
-        used them safely all along), because that argument is not
-        guaranteed to exist on `async_show_menu` on every Home Assistant
-        version this integration supports; a per-day step_id gets a
-        day-specific, fully static, always-translatable title instead.
-        A day's current slot values are visible once you open "Edit slot
-        N", not in this menu itself - a deliberate trade for not
-        depending on that argument at all.
+            if copy_from != _COPY_FROM_NONE:
+                self._working_day_slots = list(
+                    current.get(CONF_SCHEDULE, {}).get(copy_from, [])
+                )
+            else:
+                self._working_day_slots = [
+                    {
+                        "time": user_input[f"slot{i}_time"],
+                        "temperature": user_input[f"slot{i}_temperature"],
+                    }
+                    for i in range(shown_count)
+                    if user_input.get(f"slot{i}_time") is not None
+                    and user_input.get(f"slot{i}_temperature") is not None
+                ]
 
-        Home Assistant's FlowManager validates `hasattr(flow,
-        f"async_step_{result_step_id}")` for the step_id of *any* result a
-        step returns, not only for a step_id being navigated to by name -
-        so each of the 7 day_menu_* step_ids below needs its own
-        async_step_day_menu_<day> method even though nothing ever actually
-        dispatches to it by name (see the matching methods further down).
-        """
-        slots = self._working_day_slots
-        menu_options = [f"edit_slot_{i}" for i in range(len(slots))]
-        if len(slots) < MAX_SCHEDULE_SLOTS_PER_DAY:
-            menu_options.append("add_slot")
-        menu_options.extend(["copy_day", "push_days", "day_done"])
+                if user_input.get("add_another_slot", False) and len(
+                    self._working_day_slots
+                ) < MAX_SCHEDULE_SLOTS_PER_DAY:
+                    self._working_day_slots.append(
+                        self._suggest_next_slot(current)
+                    )
+                    return self._show_schedule_day_form(day_key)
 
-        return self.async_show_menu(
-            step_id=f"day_menu_{self._working_day_key}",
-            menu_options=menu_options,
-        )
+            schedule = dict(current.get(CONF_SCHEDULE, {}))
+            schedule[day_key] = list(self._working_day_slots)
+            for target_day in push_to_days:
+                schedule[target_day] = list(self._working_day_slots)
+            self._working_day_key = None
+            return self.async_create_entry(title="", data={**current, CONF_SCHEDULE: schedule})
 
-    # HA validates that a step_id returned in a FlowResult has a matching
-    # async_step_<id> method, even for a menu you only ever reach by
-    # returning it directly (see _show_day_menu's docstring) - these 7
-    # exist purely to satisfy that check.
-    async def async_step_day_menu_mon(self, user_input=None) -> FlowResult:
-        return self._show_day_menu()
-
-    async def async_step_day_menu_tue(self, user_input=None) -> FlowResult:
-        return self._show_day_menu()
-
-    async def async_step_day_menu_wed(self, user_input=None) -> FlowResult:
-        return self._show_day_menu()
-
-    async def async_step_day_menu_thu(self, user_input=None) -> FlowResult:
-        return self._show_day_menu()
-
-    async def async_step_day_menu_fri(self, user_input=None) -> FlowResult:
-        return self._show_day_menu()
-
-    async def async_step_day_menu_sat(self, user_input=None) -> FlowResult:
-        return self._show_day_menu()
-
-    async def async_step_day_menu_sun(self, user_input=None) -> FlowResult:
-        return self._show_day_menu()
+        return self._show_schedule_day_form(day_key)
 
     def _suggest_next_slot(self, current: dict[str, Any]) -> dict[str, Any]:
         """A starting point for a freshly-appended slot: an hour after the
@@ -400,161 +383,54 @@ class BestTRVOptionsFlow(config_entries.OptionsFlow):
             suggested_temp = current.get(CONF_HEAT_MIN_TEMP, 20.0)
         return {"time": suggested_time.isoformat(), "temperature": suggested_temp}
 
-    async def async_step_add_slot(self, user_input=None) -> FlowResult:
-        """No form at all - the genuinely one-tap action the checkbox used to gate."""
-        if len(self._working_day_slots) < MAX_SCHEDULE_SLOTS_PER_DAY:
-            self._working_day_slots.append(self._suggest_next_slot(self._current_options()))
-        return self._show_day_menu()
-
-    # -- editing one existing slot: 12 thin dispatchers into one form ------
-
-    async def async_step_edit_slot_0(self, user_input=None) -> FlowResult:
-        return await self._async_step_edit_slot(0, user_input)
-
-    async def async_step_edit_slot_1(self, user_input=None) -> FlowResult:
-        return await self._async_step_edit_slot(1, user_input)
-
-    async def async_step_edit_slot_2(self, user_input=None) -> FlowResult:
-        return await self._async_step_edit_slot(2, user_input)
-
-    async def async_step_edit_slot_3(self, user_input=None) -> FlowResult:
-        return await self._async_step_edit_slot(3, user_input)
-
-    async def async_step_edit_slot_4(self, user_input=None) -> FlowResult:
-        return await self._async_step_edit_slot(4, user_input)
-
-    async def async_step_edit_slot_5(self, user_input=None) -> FlowResult:
-        return await self._async_step_edit_slot(5, user_input)
-
-    async def async_step_edit_slot_6(self, user_input=None) -> FlowResult:
-        return await self._async_step_edit_slot(6, user_input)
-
-    async def async_step_edit_slot_7(self, user_input=None) -> FlowResult:
-        return await self._async_step_edit_slot(7, user_input)
-
-    async def async_step_edit_slot_8(self, user_input=None) -> FlowResult:
-        return await self._async_step_edit_slot(8, user_input)
-
-    async def async_step_edit_slot_9(self, user_input=None) -> FlowResult:
-        return await self._async_step_edit_slot(9, user_input)
-
-    async def async_step_edit_slot_10(self, user_input=None) -> FlowResult:
-        return await self._async_step_edit_slot(10, user_input)
-
-    async def async_step_edit_slot_11(self, user_input=None) -> FlowResult:
-        return await self._async_step_edit_slot(11, user_input)
-
-    async def async_step_edit_slot(self, user_input=None) -> FlowResult:
-        """Reached only via submission of the form below - `async_show_form`
-        dispatches the next step by the step_id it was shown under, which
-        is this shared one regardless of which `edit_slot_N` menu button
-        was originally clicked; `_editing_slot_index` (set just before the
-        form was shown) says which slot that submission is for."""
-        return await self._async_step_edit_slot(self._editing_slot_index, user_input)
-
-    async def _async_step_edit_slot(
-        self, index: int, user_input: dict[str, Any] | None
-    ) -> FlowResult:
+    def _show_schedule_day_form(self, day_key: str) -> FlowResult:
         slots = self._working_day_slots
-        if index >= len(slots):
-            # Stale button (e.g. the menu was re-rendered by another
-            # in-flight change before this one was clicked) - just bail
-            # back to the menu rather than crashing on a bad index.
-            return self._show_day_menu()
 
-        self._editing_slot_index = index
-
-        if user_input is not None:
-            if user_input.get("delete_slot", False):
-                del slots[index]
-            else:
-                slots[index] = {
-                    "time": user_input["time"],
-                    "temperature": user_input["temperature"],
-                }
-            return self._show_day_menu()
-
-        slot = slots[index]
-        schema = vol.Schema(
-            {
-                vol.Required("time", default=slot["time"]): selector.TimeSelector(),
-                vol.Required("temperature", default=slot["temperature"]): vol.Coerce(float),
-                vol.Optional("delete_slot", default=False): bool,
-            }
-        )
-        return self.async_show_form(
-            step_id="edit_slot",
-            data_schema=schema,
-            description_placeholders={
-                "day": _DAY_LABELS[self._working_day_key],
-                "slot_number": str(index + 1),
-            },
-        )
-
-    async def async_step_copy_day(self, user_input: dict[str, Any] | None = None) -> FlowResult:
-        current = self._current_options()
-        if user_input is not None:
-            source_day = user_input["source_day"]
-            self._working_day_slots = list(current.get(CONF_SCHEDULE, {}).get(source_day, []))
-            return self._show_day_menu()
-
-        schema = vol.Schema(
-            {
-                vol.Required("source_day"): selector.SelectSelector(
-                    selector.SelectSelectorConfig(
-                        options=[
-                            selector.SelectOptionDict(value=d, label=label)
+        schema_dict: dict[Any, Any] = {
+            vol.Optional("copy_from_day", default=_COPY_FROM_NONE): selector.SelectSelector(
+                selector.SelectSelectorConfig(
+                    options=[
+                        selector.SelectOptionDict(value=_COPY_FROM_NONE, label="Don't copy"),
+                        *[
+                            selector.SelectOptionDict(value=d, label=f"Copy from {label}")
                             for d, label in _DAY_LABELS.items()
-                            if d != self._working_day_key
+                            if d != day_key
                         ],
-                        mode=selector.SelectSelectorMode.DROPDOWN,
-                    )
-                ),
-            }
+                    ],
+                    mode=selector.SelectSelectorMode.DROPDOWN,
+                )
+            ),
+        }
+
+        for i, slot in enumerate(slots):
+            schema_dict[vol.Optional(f"slot{i}_time", default=slot["time"])] = (
+                selector.TimeSelector()
+            )
+            schema_dict[vol.Optional(f"slot{i}_temperature", default=slot["temperature"])] = (
+                vol.Coerce(float)
+            )
+
+        if len(slots) < MAX_SCHEDULE_SLOTS_PER_DAY:
+            schema_dict[vol.Optional("add_another_slot", default=False)] = bool
+        schema_dict[vol.Optional("push_to_days", default=[])] = selector.SelectSelector(
+            selector.SelectSelectorConfig(
+                options=[
+                    selector.SelectOptionDict(value=d, label=label)
+                    for d, label in _DAY_LABELS.items()
+                    if d != day_key
+                ],
+                multiple=True,
+                mode=selector.SelectSelectorMode.LIST,
+            )
+        )
+
+        summary = (
+            ", ".join(f"{s['time'][:5]} → {s['temperature']}°C" for s in slots)
+            if slots
+            else "(no slots yet)"
         )
         return self.async_show_form(
-            step_id="copy_day",
-            data_schema=schema,
-            description_placeholders={"day": _DAY_LABELS[self._working_day_key]},
+            step_id=f"schedule_{day_key}",
+            data_schema=vol.Schema(schema_dict),
+            description_placeholders={"slots_summary": summary},
         )
-
-    async def async_step_push_days(self, user_input: dict[str, Any] | None = None) -> FlowResult:
-        if user_input is not None:
-            self._working_push_to_days = list(user_input.get("target_days") or [])
-            return self._show_day_menu()
-
-        schema = vol.Schema(
-            {
-                vol.Optional(
-                    "target_days", default=list(self._working_push_to_days)
-                ): selector.SelectSelector(
-                    selector.SelectSelectorConfig(
-                        options=[
-                            selector.SelectOptionDict(value=d, label=label)
-                            for d, label in _DAY_LABELS.items()
-                            if d != self._working_day_key
-                        ],
-                        multiple=True,
-                        mode=selector.SelectSelectorMode.LIST,
-                    )
-                ),
-            }
-        )
-        return self.async_show_form(
-            step_id="push_days",
-            data_schema=schema,
-            description_placeholders={"day": _DAY_LABELS[self._working_day_key]},
-        )
-
-    async def async_step_day_done(self, user_input=None) -> FlowResult:
-        """Write this day (and any staged pushes to other days) back and close."""
-        current = self._current_options()
-        schedule = dict(current.get(CONF_SCHEDULE, {}))
-        schedule[self._working_day_key] = list(self._working_day_slots)
-        for target_day in self._working_push_to_days:
-            schedule[target_day] = list(self._working_day_slots)
-
-        self._working_day_key = None
-        self._working_day_slots = []
-        self._working_push_to_days = []
-        return self.async_create_entry(title="", data={**current, CONF_SCHEDULE: schedule})

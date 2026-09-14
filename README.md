@@ -127,11 +127,9 @@ added, install "Best TRV" from HACS like any other integration.
 6. Afterwards, use the integration's **Configure** option (a menu: Tuning /
    Schedule on/off / one entry per weekday) to adjust min/max/step per
    mode, the push threshold, forced-refresh interval, changeover debounce,
-   and the weekly schedule - all without recreating the entry. "Tuning"
-   and "Schedule on/off" are plain forms; each weekday instead opens its
-   own one-tap menu (edit a slot, add one, copy from another day, push to
-   others, or Done) - only "Done" saves and closes the dialog, so setting
-   up a full week means visiting each day's menu once (see README's design
+   and the weekly schedule - all without recreating the entry. Each menu
+   choice is its own form; saving one closes the dialog, so setting up a
+   full week means reopening Configure once per day (see README's design
    notes for why).
 
 ## Design decisions worth knowing about
@@ -164,20 +162,22 @@ added, install "Best TRV" from HACS like any other integration.
   the changeover sensor briefly flaps mid-transition.
 - **Scheduling is native, not a HACS dependency** - a custom integration
   depending on a separately-maintained HACS component breaks the moment
-  either side ships an incompatible update. Each weekday opens as a menu
-  of one-tap buttons: one per existing slot to edit or delete it, "Add
-  another slot" (no form at all - it's appended immediately, defaulted to
-  an hour after the last one, straight back to the same menu), "Copy
-  schedule from another day" to replace the whole day's program in one
-  shot, "Also apply to other days" to fan the result out, and "Done" to
-  write it back - nothing is saved until "Done" is pressed. A day left
-  empty carries over the most recent configured day. Manual adjustments
-  hold until the next scheduled change instead of being overwritten on
-  every tick - call the `best_trv.resync_schedule` service (target the
-  entity) to snap back to whatever the schedule currently says
-  immediately, instead of waiting for the next transition. The TRV's own
-  native scheduling is left disabled - it would fight the setpoint-sync
-  above.
+  either side ships an incompatible update. Slots per weekday grow one at
+  a time via an "add another slot" checkbox (no fixed count, and no
+  pre-shown empty row inviting confusion about whether it's real yet) -
+  checking it and submitting appends one new slot, defaulted to an hour
+  after the last one, as a genuine editable row. A day left empty carries
+  over the most recent configured
+  day. Each day's step can also **pull** another day's whole program via
+  "copy from", and **push** its own resulting program out to other days
+  via "also apply to these days" in the same submission - setting up
+  several identical days no longer means visiting each one individually.
+  Manual adjustments hold until the next scheduled change instead of
+  being overwritten on every tick - call the `best_trv.resync_schedule`
+  service (target the entity) to snap back to whatever the schedule
+  currently says immediately, instead of waiting for the next transition.
+  The TRV's own native scheduling is left disabled - it would fight the
+  setpoint-sync above.
 - **Failed commands are retried with backoff, not sent once and
   forgotten.** Enabling/disabling a TRV, syncing its setpoint, and
   pushing the feed temperature each go through a small per-adapter
