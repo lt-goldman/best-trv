@@ -179,6 +179,18 @@ reload, so an edit shows up on the card instantly.
   unaffected.
 - **Multiple TRVs in one room degrade independently** - one unavailable
   TRV doesn't take the others, or the room, down with it.
+- **An optional "stand-down" sensor lets Best TRV yield to something else
+  already conditioning the room** - a portable/split AC unit, or (the
+  same mechanism, not yet its own dedicated feature) an open window/door
+  sensor. Point it at any entity plus the state value that means "stand
+  down"; while that's true, every TRV in the room is turned off, exactly
+  like the user picking `off` themselves, without actually touching that
+  selection - AUTO resumes on its own the moment the condition clears.
+  This exists because two uncoordinated controllers pulling the same room
+  in different (or even the same) direction just means audible valve
+  hunting for no benefit: continuing to actively chase a setpoint while
+  something else is also independently heating/cooling the room is worse
+  than doing nothing.
 - **`hvac_action` is an estimate, not a measurement.** Most TRVs don't
   expose valve position, so it's inferred from the feed value and an
   assumed hysteresis (`DEFAULT_ASSUMED_DEADBAND`).
@@ -235,7 +247,6 @@ itself in the field:
 
 - PID / TPI / MPC / direct valve-position control (`DirectValveAdapter`).
 - Presets (comfort/eco/away/sleep).
-- Window/door-open suspend.
 - Weather compensation, AI-learning (optimum start, feed-forward outdoor
   compensation) - a real future direction, not ruled out, just deferred
   until the current control loop and the dashboard card have both proven

@@ -30,6 +30,8 @@ from .const import (
     CONF_SCHEDULE,
     CONF_SCHEDULE_ENABLED,
     CONF_SENSOR_SELECT,
+    CONF_SUSPEND_ACTIVE_VALUE,
+    CONF_SUSPEND_SENSOR,
     CONF_TRV_CLIMATE_ENTITIES,
     CONF_TRV_MAPPING,
     DEFAULT_COOL_MAX_TEMP,
@@ -43,6 +45,8 @@ from .const import (
     DEFAULT_HEAT_STEP,
     DEFAULT_MIN_DELTA,
     DEFAULT_SCHEDULE_ENABLED,
+    DEFAULT_SUSPEND_ACTIVE_VALUE,
+    DEFAULT_SUSPEND_SENSOR,
     DOMAIN,
     MAX_SCHEDULE_SLOTS_PER_DAY,
 )
@@ -120,6 +124,20 @@ class BestTRVConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
                 vol.Required(
                     CONF_COOLING_ACTIVE_VALUE, default=DEFAULT_COOLING_ACTIVE_VALUE
                 ): str,
+                # An EntitySelector rejects "" as an actual value (it's
+                # validated as an entity ID/UUID, and "" is neither) - so
+                # unlike every plain-string field above, this can't use
+                # `default=""`. `description={"suggested_value": ...}` is
+                # HA's own pattern for "start this field empty/optional":
+                # it only affects what the form initially shows, and if
+                # left blank the key is simply absent from user_input
+                # rather than submitted as an invalid empty string.
+                vol.Optional(
+                    CONF_SUSPEND_SENSOR, description={"suggested_value": ""}
+                ): selector.EntitySelector(selector.EntitySelectorConfig()),
+                vol.Optional(
+                    CONF_SUSPEND_ACTIVE_VALUE, default=DEFAULT_SUSPEND_ACTIVE_VALUE
+                ): str,
             }
         )
         return self.async_show_form(step_id="user", data_schema=schema, errors=errors)
@@ -149,6 +167,9 @@ class BestTRVConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
             self._data.setdefault(CONF_DEBOUNCE_SECONDS, DEFAULT_DEBOUNCE_SECONDS)
             self._data.setdefault(CONF_SCHEDULE_ENABLED, DEFAULT_SCHEDULE_ENABLED)
             self._data.setdefault(CONF_SCHEDULE, {})
+            # Absent (not "") when the suspend-sensor field on the previous
+            # step was left blank - see that field's own comment.
+            self._data.setdefault(CONF_SUSPEND_SENSOR, DEFAULT_SUSPEND_SENSOR)
             return self.async_create_entry(title=self._data[CONF_NAME], data=self._data)
 
         schema_dict: dict[Any, Any] = {}
@@ -221,6 +242,14 @@ class BestTRVOptionsFlow(config_entries.OptionsFlow):
     async def async_step_tuning(self, user_input: dict[str, Any] | None = None) -> FlowResult:
         current = self._current_options()
         if user_input is not None:
+            # The suspend-sensor field is offered via suggested_value, not
+            # a schema default (see that field below) - clearing it in the
+            # form leaves the key absent from user_input entirely, rather
+            # than submitted as "". Without normalizing that here, a plain
+            # {**current, **user_input} merge would just silently keep
+            # whatever was previously configured instead of actually
+            # clearing it.
+            user_input.setdefault(CONF_SUSPEND_SENSOR, DEFAULT_SUSPEND_SENSOR)
             return self.async_create_entry(title="", data={**current, **user_input})
 
         schema = vol.Schema(
@@ -256,6 +285,19 @@ class BestTRVOptionsFlow(config_entries.OptionsFlow):
                 vol.Required(
                     CONF_COOLING_ACTIVE_VALUE,
                     default=current[CONF_COOLING_ACTIVE_VALUE],
+                ): str,
+                # See the identical field in BestTRVConfigFlow.async_step_user
+                # for why this can't use `default=""` the way every field
+                # above it does.
+                vol.Optional(
+                    CONF_SUSPEND_SENSOR,
+                    description={
+                        "suggested_value": current.get(CONF_SUSPEND_SENSOR, DEFAULT_SUSPEND_SENSOR)
+                    },
+                ): selector.EntitySelector(selector.EntitySelectorConfig()),
+                vol.Optional(
+                    CONF_SUSPEND_ACTIVE_VALUE,
+                    default=current.get(CONF_SUSPEND_ACTIVE_VALUE, DEFAULT_SUSPEND_ACTIVE_VALUE),
                 ): str,
             }
         )

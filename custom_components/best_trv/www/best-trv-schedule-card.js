@@ -40,6 +40,7 @@
       time: "Time",
       temperature: "Temperature",
       chooseDay: "Choose a day",
+      carriesOver: "Carries over",
     },
     nl: {
       days: { mon: "Maandag", tue: "Dinsdag", wed: "Woensdag", thu: "Donderdag", fri: "Vrijdag", sat: "Zaterdag", sun: "Zondag" },
@@ -53,6 +54,7 @@
       time: "Tijd",
       temperature: "Temperatuur",
       chooseDay: "Kies een dag",
+      carriesOver: "Loopt door vanaf",
     },
   };
 
@@ -84,6 +86,24 @@
     if (!sorted.length) return { time: "00:00:00", temperature: tempMin };
     const last = sorted[sorted.length - 1];
     return { time: fromMinutes(toMinutes(last.time) + 60), temperature: last.temperature };
+  }
+
+  // Mirrors controller.py's get_active_schedule_slot: a day with no slots
+  // of its own isn't "off" or unconfigured, it holds whatever the most
+  // recently configured earlier day's last slot said, all day, until the
+  // next day that actually has slots. The card used to render such a day
+  // as a flat, uncolored bar - implying nothing was set - when the real
+  // control loop is quietly applying an inherited temperature the whole
+  // time. Returns null only if genuinely no day in the whole week has any
+  // slots at all.
+  function findCarryOverSlot(schedule, day) {
+    const idx = DAY_KEYS.indexOf(day);
+    for (let back = 1; back <= 7; back++) {
+      const checkDay = DAY_KEYS[(idx - back + 7) % 7];
+      const slots = sortedSlots(schedule[checkDay]);
+      if (slots.length) return slots[slots.length - 1];
+    }
+    return null;
   }
 
   class BestTrvScheduleCard extends HTMLElement {
@@ -248,29 +268,55 @@
 
     _paintBar(bar, day, slots, tempMin, tempMax) {
       bar.innerHTML = "";
-      if (!slots.length) return;
-      const addSeg = (startPct, widthPct, color) => {
+      if (!slots.length) {
+        // Not "unconfigured" - this day is quietly holding whatever the
+        // most recently configured earlier day's last slot said (see
+        // findCarryOverSlot). Shown dimmed, in that same slot's color, so
+        // it reads as "inherited" rather than "this day has its own
+        // program" - and isn't left looking like nothing is happening.
+        const carry = findCarryOverSlot(this._schedule(), day);
+        if (carry) {
+          const seg = document.createElement("div");
+          seg.title = this._t().carriesOver + ": " + carry.time.slice(0, 5) + " → " + carry.temperature + "°C";
+          seg.style.cssText =
+            "position:absolute;inset:0;background:" + segColor(carry.temperature, tempMin, tempMax) + ";border-radius:9px;opacity:.45;";
+          bar.appendChild(seg);
+        }
+        return;
+      }
+      // Clicking anywhere in a segment opens that slot's editor too, not
+      // just its thin marker - a much bigger, more forgiving target than
+      // the marker's own hit-area, and the natural expectation ("I clicked
+      // the warm part of the bar, so I get that slot").
+      const addSeg = (startPct, widthPct, color, slotIndex) => {
         const seg = document.createElement("div");
         seg.style.cssText =
-          "position:absolute;top:0;bottom:0;left:" + startPct + "%;width:" + widthPct + "%;background:" + color + ";border-radius:9px;";
+          "position:absolute;top:0;bottom:0;left:" + startPct + "%;width:" + widthPct + "%;background:" + color + ";border-radius:9px;cursor:pointer;";
+        seg.addEventListener("click", (e) => {
+          e.stopPropagation();
+          this._openDay = day;
+          this._editingIndex = this._editingIndex === slotIndex ? null : slotIndex;
+          this._render();
+        });
         bar.appendChild(seg);
       };
       // The stretch before the first slot's own start time is still
       // showing whatever the *last* slot set - it carried over from
       // yesterday, wrapping past midnight - so it gets that slot's color
-      // rather than being left blank. Drawing it first (then each slot's
-      // own segment ending at 1440, not wrapping past it) keeps every
-      // segment within the bar's own width instead of overflowing past
-      // 100% the way a naive "next slot, or first slot + 1440" span would.
+      // (and edits that same slot) rather than being left blank. Drawing
+      // it first (then each slot's own segment ending at 1440, not
+      // wrapping past it) keeps every segment within the bar's own width
+      // instead of overflowing past 100% the way a naive "next slot, or
+      // first slot + 1440" span would.
       const firstStart = toMinutes(slots[0].time);
       if (firstStart > 0) {
-        addSeg(0, (firstStart / 1440) * 100, segColor(slots[slots.length - 1].temperature, tempMin, tempMax));
+        addSeg(0, (firstStart / 1440) * 100, segColor(slots[slots.length - 1].temperature, tempMin, tempMax), slots.length - 1);
       }
       slots.forEach((slot, i) => {
         const start = toMinutes(slot.time);
         const end = i + 1 < slots.length ? toMinutes(slots[i + 1].time) : 1440;
         const pct = ((end - start) / 1440) * 100;
-        addSeg((start / 1440) * 100, pct, segColor(slot.temperature, tempMin, tempMax));
+        addSeg((start / 1440) * 100, pct, segColor(slot.temperature, tempMin, tempMax), i);
       });
       slots.forEach((slot, i) => {
         // A wider, invisible hit-area (14px) around the thin 4px visual
@@ -352,8 +398,11 @@
       if (this._editingIndex !== null && slots[this._editingIndex]) {
         panel.appendChild(this._renderSlotEditor(day, slots, this._editingIndex, t));
       } else if (!slots.length) {
+        const carry = findCarryOverSlot(this._schedule(), day);
         const empty = document.createElement("div");
-        empty.textContent = t.noSlots;
+        empty.textContent = carry
+          ? t.noSlots + " (" + t.carriesOver.toLowerCase() + ": " + carry.time.slice(0, 5) + " → " + carry.temperature + "°C)"
+          : t.noSlots;
         empty.style.cssText = "font-size:12px;color:var(--secondary-text-color);margin-bottom:8px;";
         panel.appendChild(empty);
       }

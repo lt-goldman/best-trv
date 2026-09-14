@@ -45,11 +45,15 @@ from .const import (
     CONF_SCHEDULE,
     CONF_SCHEDULE_ENABLED,
     CONF_SENSOR_SELECT,
+    CONF_SUSPEND_ACTIVE_VALUE,
+    CONF_SUSPEND_SENSOR,
     CONF_TRV_MAPPING,
     DEFAULT_ASSUMED_DEADBAND,
     DEFAULT_FEED_MAX,
     DEFAULT_FEED_MIN,
     DEFAULT_SCHEDULE_ENABLED,
+    DEFAULT_SUSPEND_ACTIVE_VALUE,
+    DEFAULT_SUSPEND_SENSOR,
     DOMAIN,
     MAX_SCHEDULE_SLOTS_PER_DAY,
     UPDATE_TICK_SECONDS,
@@ -173,6 +177,21 @@ class BestTRV(ClimateEntity, RestoreEntity):
         self._cooling_active_value: str = options.get(
             CONF_COOLING_ACTIVE_VALUE, data[CONF_COOLING_ACTIVE_VALUE]
         )
+        # Optional "stand down" input - .get() with a default on BOTH data
+        # and options, not bracket access, since entries created before
+        # this feature existed simply won't have these keys at all. An
+        # empty suspend_sensor_entity_id means the feature is unused.
+        self._suspend_sensor_entity_id: str = options.get(
+            CONF_SUSPEND_SENSOR, data.get(CONF_SUSPEND_SENSOR, DEFAULT_SUSPEND_SENSOR)
+        )
+        self._suspend_active_value: str = options.get(
+            CONF_SUSPEND_ACTIVE_VALUE,
+            data.get(CONF_SUSPEND_ACTIVE_VALUE, DEFAULT_SUSPEND_ACTIVE_VALUE),
+        )
+        # Whether _is_suspended() was true on the most recent tick - purely
+        # for visibility (extra_state_attributes); never read to decide
+        # behavior, only ever (re)computed fresh each tick.
+        self._suspended: bool = False
         self._schedule_enabled: bool = options.get(
             CONF_SCHEDULE_ENABLED, data.get(CONF_SCHEDULE_ENABLED, DEFAULT_SCHEDULE_ENABLED)
         )
@@ -246,11 +265,12 @@ class BestTRV(ClimateEntity, RestoreEntity):
         # Enable/setpoint sync happens via _async_update_control below (it
         # always runs both, queue-gated) - no need to also call them here.
 
+        tracked_entities = [self._room_sensor_entity_id, self._changeover_sensor_entity_id]
+        if self._suspend_sensor_entity_id:
+            tracked_entities.append(self._suspend_sensor_entity_id)
         self._remove_listeners.append(
             async_track_state_change_event(
-                self.hass,
-                [self._room_sensor_entity_id, self._changeover_sensor_entity_id],
-                self._async_input_changed,
+                self.hass, tracked_entities, self._async_input_changed
             )
         )
         self._remove_listeners.append(
@@ -304,6 +324,8 @@ class BestTRV(ClimateEntity, RestoreEntity):
     def hvac_action(self) -> str | None:
         if self._attr_hvac_mode == HVACMode.OFF:
             return HvacAction.OFF.value
+        if self._suspended:
+            return HvacAction.IDLE.value
         if self._degraded or self._last_feed_temperature is None or self._attr_target_temperature is None:
             return None
         return estimate_hvac_action(
@@ -324,6 +346,7 @@ class BestTRV(ClimateEntity, RestoreEntity):
                 entity_id: adapter.available for entity_id, adapter in self._adapters.items()
             },
             "commands_pending": self._command_queue.pending_count(),
+            "suspended": self._suspended,
             "schedule_enabled": self._schedule_enabled,
             "active_schedule_slot": (
                 f"{self._last_applied_schedule_slot[0]} {self._last_applied_schedule_slot[1].time}"
@@ -478,9 +501,29 @@ class BestTRV(ClimateEntity, RestoreEntity):
             if await adapter.async_set_setpoint(target):
                 self._command_queue.mark_succeeded(key)
 
+    def _is_suspended(self) -> bool:
+        """Whether the configured "stand down" sensor is currently active.
+
+        For a room that also has its own independent heating/cooling (a
+        portable or split AC unit, say) - fighting it is worse than doing
+        nothing: whichever direction the AC runs, Best TRV continuing to
+        actively chase its own setpoint just means two uncoordinated
+        controllers pulling the same room in different directions (or the
+        same direction, making the TRV's own effort redundant) - either
+        way, audible valve hunting for no benefit. Standing down while
+        that AC (or, generically, whatever's plugged into this - an open
+        window/door sensor would work exactly the same way) is active is
+        simpler and more correct than trying to model its effect on the
+        mirrored-temperature math.
+        """
+        if not self._suspend_sensor_entity_id:
+            return False
+        state = self.hass.states.get(self._suspend_sensor_entity_id)
+        return state is not None and state.state == self._suspend_active_value
+
     async def _async_sync_enabled(self) -> None:
         """Push our on/off state to every adapter, retried the same way."""
-        enabled = self._attr_hvac_mode != HVACMode.OFF
+        enabled = self._attr_hvac_mode != HVACMode.OFF and not self._suspended
         for climate_entity_id, adapter in self._adapters.items():
             if not adapter.available:
                 continue
@@ -501,11 +544,18 @@ class BestTRV(ClimateEntity, RestoreEntity):
         await self._async_update_control()
 
     async def _async_update_control(self, force: bool = False) -> None:
+        # Suspend only means anything while the user's own AUTO/OFF choice
+        # would otherwise be actively driving the TRV - an explicit OFF
+        # already means "no control", so there's nothing to additionally
+        # stand down from, and self._suspended stays False rather than
+        # muddying an unrelated state with a reason that isn't why it's off.
+        self._suspended = self._attr_hvac_mode != HVACMode.OFF and self._is_suspended()
+
         # Runs every tick regardless of mode - queue-gated, so a failed
         # "turn off" is retried too, not just a failed "turn on"/setpoint.
         await self._async_sync_enabled()
 
-        if self._attr_hvac_mode == HVACMode.OFF:
+        if self._attr_hvac_mode == HVACMode.OFF or self._suspended:
             self._degraded = False
             self._degraded_reason = None
             self._last_feed_temperature = None

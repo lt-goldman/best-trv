@@ -9,7 +9,13 @@
           "trv_climate_entities": "Fysieke TRV('s)",
           "room_sensor_entity_id": "Kamertemperatuursensor",
           "changeover_sensor_entity_id": "Verwarmen/koelen-omschakelsensor",
-          "cooling_active_value": "Sensorwaarde die \"koeling actief\" betekent"
+          "cooling_active_value": "Sensorwaarde die \"koeling actief\" betekent",
+          "suspend_sensor_entity_id": "Onderdruk-sensor (optioneel)",
+          "suspend_active_value": "Sensorwaarde die \"onderdrukken\" betekent"
+        },
+        "data_description": {
+          "suspend_sensor_entity_id": "Een willekeurige entity - een airco, een raam/deur-sensor, alles met een status die betekent dat iets anders deze kamer al verwarmt/koelt. Leeg laten om dit niet te gebruiken.",
+          "suspend_active_value": "De status hierboven die betekent dat Best TRV de TRV('s) in deze kamer moet uitzetten in plaats van tegen die andere bron in te werken."
         }
       },
       "trv_mapping": {
@@ -53,7 +59,13 @@
           "min_delta": "Minimale wijziging voordat de feed-temperatuur opnieuw wordt gestuurd (°C)",
           "forced_refresh_seconds": "Forceer een refresh uiterlijk elke (seconden)",
           "debounce_seconds": "Ontdender omschakelsensor (seconden)",
-          "cooling_active_value": "Sensorwaarde die \"koeling actief\" betekent"
+          "cooling_active_value": "Sensorwaarde die \"koeling actief\" betekent",
+          "suspend_sensor_entity_id": "Onderdruk-sensor (optioneel)",
+          "suspend_active_value": "Sensorwaarde die \"onderdrukken\" betekent"
+        },
+        "data_description": {
+          "suspend_sensor_entity_id": "Een willekeurige entity - een airco, een raam/deur-sensor, alles met een status die betekent dat iets anders deze kamer al verwarmt/koelt. Leeg laten om dit niet te gebruiken.",
+          "suspend_active_value": "De status hierboven die betekent dat Best TRV de TRV('s) in deze kamer moet uitzetten in plaats van tegen die andere bron in te werken."
         }
       },
       "schedule_toggle": {

@@ -26,6 +26,17 @@ CONF_MIN_DELTA = "min_delta"
 CONF_FORCED_REFRESH_SECONDS = "forced_refresh_seconds"
 CONF_DEBOUNCE_SECONDS = "debounce_seconds"
 
+# Optional "stand down" input: any entity whose state, when it equals
+# suspend_active_value, means something else is already actively
+# conditioning this room (a portable/split AC unit, or - the same idea,
+# not yet wired up as its own thing - an open window/door sensor) and
+# Best TRV should get out of its way rather than fight it. An empty
+# suspend_sensor_entity_id ("" - not None, to keep every stored option a
+# plain JSON-safe string) means the feature is simply unused, which is
+# also the default for every existing installation.
+CONF_SUSPEND_SENSOR = "suspend_sensor_entity_id"
+CONF_SUSPEND_ACTIVE_VALUE = "suspend_active_value"
+
 # Schedule: a per-day list of {"time": "HH:MM:SS", "temperature": float}
 # slots, JSON-safe for config-entry storage. See controller.ScheduleSlot /
 # get_active_schedule_slot for how it's interpreted, and DAY_KEYS there for
@@ -61,6 +72,8 @@ DEFAULT_MIN_DELTA = 0.15
 DEFAULT_FORCED_REFRESH_SECONDS = 90
 DEFAULT_DEBOUNCE_SECONDS = 120
 DEFAULT_COOLING_ACTIVE_VALUE = "1"
+DEFAULT_SUSPEND_SENSOR = ""
+DEFAULT_SUSPEND_ACTIVE_VALUE = "on"
 
 # Assumed on-device hysteresis, used only to *estimate* hvac_action for
 # display - the Aqara E1 exposes no valve position or running state.
