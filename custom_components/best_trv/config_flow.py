@@ -2,7 +2,6 @@
 from __future__ import annotations
 
 import logging
-from datetime import time as time_of_day
 from typing import Any
 
 import voluptuous as vol
@@ -48,22 +47,9 @@ from .const import (
     DEFAULT_SUSPEND_ACTIVE_VALUE,
     DEFAULT_SUSPEND_SENSOR,
     DOMAIN,
-    MAX_SCHEDULE_SLOTS_PER_DAY,
 )
-from .controller import DAY_KEYS, parse_time_string
 
 _LOGGER = logging.getLogger(__name__)
-
-_DAY_LABELS = {
-    "mon": "Monday",
-    "tue": "Tuesday",
-    "wed": "Wednesday",
-    "thu": "Thursday",
-    "fri": "Friday",
-    "sat": "Saturday",
-    "sun": "Sunday",
-}
-_COPY_FROM_NONE = "none"
 
 
 def _guess_aux_entities(
@@ -210,25 +196,21 @@ class BestTRVConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
 
 
 class BestTRVOptionsFlow(config_entries.OptionsFlow):
-    """Tune tolerances/timing, and the schedule, after setup.
+    """Tune tolerances/timing, and the schedule on/off switch, after setup.
 
-    A menu rather than one giant form: "Tuning" holds the original
-    heat/cool/timing fields, "Schedule on/off" is a single toggle, and each
-    weekday is its own step with up to MAX_SCHEDULE_SLOTS_PER_DAY (time,
-    temperature) pairs. Saving any one step applies immediately (each
-    `async_create_entry` closes this dialog per HA's options-flow model) -
-    setting up a full week means reopening "Configure" once per day, a
-    known trade-off of the plain-form approach chosen over a custom
-    Lovelace card (see README).
+    A menu rather than one giant form: "Tuning" holds the heat/cool/timing
+    fields (plus the stand-down sensor), "Schedule on/off" is a single
+    toggle. The weekly schedule itself is no longer edited here - the
+    dashboard card (custom_components/best_trv/www/) is the one editing
+    surface for it now, both reading and writing the exact same `schedule`
+    config-entry key this options flow used to expose as one form per
+    weekday. That per-day wizard was removed once the card existed:
+    having two different places to edit the same thing, one of them
+    considerably more cumbersome, was confusing rather than useful.
     """
 
     def __init__(self, config_entry: config_entries.ConfigEntry) -> None:
         self._config_entry = config_entry
-        # Working buffer for whichever day's schedule is currently being
-        # edited - lets "add another slot" loop the same step repeatedly
-        # (growing the list one slot at a time) before the user finalizes.
-        self._working_day_key: str | None = None
-        self._working_day_slots: list[dict[str, Any]] = []
 
     def _current_options(self) -> dict[str, Any]:
         return {**self._config_entry.data, **self._config_entry.options}
@@ -236,7 +218,7 @@ class BestTRVOptionsFlow(config_entries.OptionsFlow):
     async def async_step_init(self, user_input: dict[str, Any] | None = None) -> FlowResult:
         return self.async_show_menu(
             step_id="init",
-            menu_options=["tuning", "schedule_toggle", *[f"schedule_{d}" for d in DAY_KEYS]],
+            menu_options=["tuning", "schedule_toggle"],
         )
 
     async def async_step_tuning(self, user_input: dict[str, Any] | None = None) -> FlowResult:
@@ -319,160 +301,3 @@ class BestTRVOptionsFlow(config_entries.OptionsFlow):
             }
         )
         return self.async_show_form(step_id="schedule_toggle", data_schema=schema)
-
-    # -- one step per weekday, all delegating to the same handler ----------
-
-    async def async_step_schedule_mon(self, user_input=None) -> FlowResult:
-        return await self._async_step_schedule_day("mon", user_input)
-
-    async def async_step_schedule_tue(self, user_input=None) -> FlowResult:
-        return await self._async_step_schedule_day("tue", user_input)
-
-    async def async_step_schedule_wed(self, user_input=None) -> FlowResult:
-        return await self._async_step_schedule_day("wed", user_input)
-
-    async def async_step_schedule_thu(self, user_input=None) -> FlowResult:
-        return await self._async_step_schedule_day("thu", user_input)
-
-    async def async_step_schedule_fri(self, user_input=None) -> FlowResult:
-        return await self._async_step_schedule_day("fri", user_input)
-
-    async def async_step_schedule_sat(self, user_input=None) -> FlowResult:
-        return await self._async_step_schedule_day("sat", user_input)
-
-    async def async_step_schedule_sun(self, user_input=None) -> FlowResult:
-        return await self._async_step_schedule_day("sun", user_input)
-
-    async def _async_step_schedule_day(
-        self, day_key: str, user_input: dict[str, Any] | None
-    ) -> FlowResult:
-        """One weekday's schedule, with dynamic slot growth and fan-out.
-
-        Only the already-confirmed slots are ever shown as fields (blank a
-        slot's time to delete it) - there is no extra, always-visible
-        "next slot" pair inviting confusion about whether it's real yet.
-        Checking "Add another slot" and submitting appends one new slot
-        (time an hour after the last one, temperature copied from it, both
-        then freely editable) and re-shows this same step with it as a
-        genuine row - nothing appears until that checkbox is actually used.
-        "Copy from" pulls another day's whole program in one shot; "push
-        to" fans this day's resulting program out to other days in the
-        same submission - setting up several identical days no longer
-        means visiting each one individually.
-        """
-        current = self._current_options()
-
-        if self._working_day_key != day_key:
-            # Fresh visit to this day - seed the working list from what's
-            # already configured (empty for a never-touched day).
-            self._working_day_key = day_key
-            self._working_day_slots = list(current.get(CONF_SCHEDULE, {}).get(day_key, []))
-
-        # How many (time, temperature) field pairs the form we're now
-        # responding to actually showed - exactly one per existing slot,
-        # no trailing extra.
-        shown_count = len(self._working_day_slots)
-
-        if user_input is not None:
-            copy_from = user_input.get("copy_from_day", _COPY_FROM_NONE)
-            push_to_days: list[str] = user_input.get("push_to_days") or []
-
-            if copy_from != _COPY_FROM_NONE:
-                self._working_day_slots = list(
-                    current.get(CONF_SCHEDULE, {}).get(copy_from, [])
-                )
-            else:
-                self._working_day_slots = [
-                    {
-                        "time": user_input[f"slot{i}_time"],
-                        "temperature": user_input[f"slot{i}_temperature"],
-                    }
-                    for i in range(shown_count)
-                    if user_input.get(f"slot{i}_time") is not None
-                    and user_input.get(f"slot{i}_temperature") is not None
-                ]
-
-                if user_input.get("add_another_slot", False) and len(
-                    self._working_day_slots
-                ) < MAX_SCHEDULE_SLOTS_PER_DAY:
-                    self._working_day_slots.append(
-                        self._suggest_next_slot(current)
-                    )
-                    return self._show_schedule_day_form(day_key)
-
-            schedule = dict(current.get(CONF_SCHEDULE, {}))
-            schedule[day_key] = list(self._working_day_slots)
-            for target_day in push_to_days:
-                schedule[target_day] = list(self._working_day_slots)
-            self._working_day_key = None
-            return self.async_create_entry(title="", data={**current, CONF_SCHEDULE: schedule})
-
-        return self._show_schedule_day_form(day_key)
-
-    def _suggest_next_slot(self, current: dict[str, Any]) -> dict[str, Any]:
-        """A starting point for a freshly-appended slot: an hour after the
-        previous one (wrapping midnight), same temperature as it - so
-        adding a run of slots is mostly nudging the time forward rather
-        than typing each pair from scratch. Falls back to midnight and the
-        room's own configured heat-mode minimum for the very first slot."""
-        slots = self._working_day_slots
-        if slots:
-            last_time = parse_time_string(slots[-1]["time"])
-            suggested_time = time_of_day((last_time.hour + 1) % 24, last_time.minute)
-            suggested_temp = slots[-1]["temperature"]
-        else:
-            suggested_time = time_of_day(0, 0)
-            suggested_temp = current.get(CONF_HEAT_MIN_TEMP, 20.0)
-        return {"time": suggested_time.isoformat(), "temperature": suggested_temp}
-
-    def _show_schedule_day_form(self, day_key: str) -> FlowResult:
-        slots = self._working_day_slots
-
-        schema_dict: dict[Any, Any] = {
-            vol.Optional("copy_from_day", default=_COPY_FROM_NONE): selector.SelectSelector(
-                selector.SelectSelectorConfig(
-                    options=[
-                        selector.SelectOptionDict(value=_COPY_FROM_NONE, label="Don't copy"),
-                        *[
-                            selector.SelectOptionDict(value=d, label=f"Copy from {label}")
-                            for d, label in _DAY_LABELS.items()
-                            if d != day_key
-                        ],
-                    ],
-                    mode=selector.SelectSelectorMode.DROPDOWN,
-                )
-            ),
-        }
-
-        for i, slot in enumerate(slots):
-            schema_dict[vol.Optional(f"slot{i}_time", default=slot["time"])] = (
-                selector.TimeSelector()
-            )
-            schema_dict[vol.Optional(f"slot{i}_temperature", default=slot["temperature"])] = (
-                vol.Coerce(float)
-            )
-
-        if len(slots) < MAX_SCHEDULE_SLOTS_PER_DAY:
-            schema_dict[vol.Optional("add_another_slot", default=False)] = bool
-        schema_dict[vol.Optional("push_to_days", default=[])] = selector.SelectSelector(
-            selector.SelectSelectorConfig(
-                options=[
-                    selector.SelectOptionDict(value=d, label=label)
-                    for d, label in _DAY_LABELS.items()
-                    if d != day_key
-                ],
-                multiple=True,
-                mode=selector.SelectSelectorMode.LIST,
-            )
-        )
-
-        summary = (
-            ", ".join(f"{s['time'][:5]} → {s['temperature']}°C" for s in slots)
-            if slots
-            else "(no slots yet)"
-        )
-        return self.async_show_form(
-            step_id=f"schedule_{day_key}",
-            data_schema=vol.Schema(schema_dict),
-            description_placeholders={"slots_summary": summary},
-        )

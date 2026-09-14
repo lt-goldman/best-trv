@@ -125,15 +125,12 @@ added, install "Best TRV" from HACS like any other integration.
 5. Step 2: confirm (or correct) the auto-guessed `number`/`select` entity
    per TRV.
 6. Afterwards, use the integration's **Configure** option (a menu: Tuning /
-   Schedule on/off / one entry per weekday) to adjust min/max/step per
-   mode, the push threshold, forced-refresh interval, changeover debounce,
-   and the weekly schedule - all without recreating the entry. Each menu
-   choice is its own form; saving one closes the dialog, so setting up a
-   full week means reopening Configure once per day (see README's design
-   notes for why).
-7. For a nicer way to edit the weekly schedule, add the **dashboard card**
-   (see below) instead - it edits the exact same schedule, just as a
-   visual weekly bar right on your dashboard.
+   Schedule on/off) to adjust min/max/step per mode, the push threshold,
+   forced-refresh interval, changeover debounce, the optional stand-down
+   sensor, and whether the schedule is active at all - all without
+   recreating the entry.
+7. To actually build the weekly schedule, add the **dashboard card** (see
+   below) - that's the one place to edit it now, not a config-flow form.
 
 ## Dashboard card
 
@@ -205,32 +202,22 @@ reload, so an edit shows up on the card instantly.
   the changeover sensor briefly flaps mid-transition.
 - **Scheduling is native, not a HACS dependency** - a custom integration
   depending on a separately-maintained HACS component breaks the moment
-  either side ships an incompatible update. Slots per weekday grow one at
-  a time via an "add another slot" checkbox (no fixed count, and no
-  pre-shown empty row inviting confusion about whether it's real yet) -
-  checking it and submitting appends one new slot, defaulted to an hour
-  after the last one, as a genuine editable row. A day left empty carries
-  over the most recent configured
-  day. Each day's step can also **pull** another day's whole program via
-  "copy from", and **push** its own resulting program out to other days
-  via "also apply to these days" in the same submission - setting up
-  several identical days no longer means visiting each one individually.
-  Manual adjustments hold until the next scheduled change instead of
-  being overwritten on every tick - call the `best_trv.resync_schedule`
-  service (target the entity) to snap back to whatever the schedule
-  currently says immediately, instead of waiting for the next transition.
-  The TRV's own native scheduling is left disabled - it would fight the
+  either side ships an incompatible update. It's edited through the
+  dashboard card (see above), not a config-flow form: dragging or tapping
+  a slot calls `best_trv.set_schedule_day`/`set_schedule_days` (validated
+  by a voluptuous schema, same as any other HA service), which updates
+  the entity's own state immediately and only *then* persists to the
+  config entry - a config-entry update always triggers Home Assistant's
+  own reload of the whole entity, so doing it the other way round would
+  mean every drag or tap visibly flickers the card for no reason. A day
+  left empty carries over the most recent configured day (the card shows
+  that inherited value dimmed, rather than looking unconfigured). Manual
+  adjustments hold until the next scheduled change instead of being
+  overwritten on every tick - call the `best_trv.resync_schedule` service
+  (target the entity) to snap back to whatever the schedule currently
+  says immediately, instead of waiting for the next transition. The
+  TRV's own native scheduling is left disabled - it would fight the
   setpoint-sync above.
-- **The dashboard card and the config-flow editor are two front ends on
-  the same schedule.** Both read and write the identical `schedule`
-  config-entry key; the card just does it live, through
-  `set_schedule_day`/`set_schedule_days`/`set_schedule_enabled` (validated
-  by a voluptuous schema, same as any other HA service) instead of an
-  options-flow submission. Those writes update the entity's own state
-  immediately and only *then* persist to the config entry - a config-entry
-  update always triggers Home Assistant's own reload of the whole entity,
-  so doing it the other way round would mean every drag or tap on the
-  card visibly flickers the whole entity for no reason.
 - **Failed commands are retried with backoff, not sent once and
   forgotten.** Enabling/disabling a TRV, syncing its setpoint, and
   pushing the feed temperature each go through a small per-adapter
