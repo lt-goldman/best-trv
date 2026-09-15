@@ -220,6 +220,41 @@ def parse_schedule_config(
     return parsed
 
 
+def resolve_effective_schedule_raw(
+    raw_chain: list[dict[str, list[dict[str, object]]]],
+) -> dict[str, list[dict[str, object]]]:
+    """Merge a template-inheritance chain of raw schedules into one.
+
+    `raw_chain` is ordered nearest-first:
+    `[own_or_starting_node, parent, grandparent, ..., root]`. For each of
+    `DAY_KEYS`, the first raw dict in the chain that HAS that day key -
+    even if its value is an empty list - wins for that day; a day key
+    present in none of them is simply absent from the result. That's
+    identical to "no schedule for this day" - already exactly what
+    `get_active_schedule_slot` treats as "carry over from an earlier day"
+    (or, if nothing in the whole week resolves to anything, "scheduling
+    unused"). No new fallback logic needed there.
+
+    A day key being *absent* from one of the chain's dicts means "this
+    node says nothing, defer to the parent" - a day key present with an
+    empty list means "this node explicitly overrides to no slots," which
+    wins even over a parent that does have slots for that day. That
+    distinction is the whole point of a template chain versus a flat copy.
+
+    Pure and JSON-safe in, JSON-safe out (the same raw shape config
+    entries store), so the result composes directly with
+    `parse_schedule_config` exactly like a room's own `CONF_SCHEDULE` does
+    today.
+    """
+    resolved: dict[str, list[dict[str, object]]] = {}
+    for day_key in DAY_KEYS:
+        for raw in raw_chain:
+            if day_key in raw:
+                resolved[day_key] = raw[day_key]
+                break
+    return resolved
+
+
 def should_push_feed_temperature(
     *,
     last_sent: float | None,

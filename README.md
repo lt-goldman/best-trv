@@ -89,7 +89,10 @@ that logic to real entities and a `TRVAdapter` per physical TRV.
 `adapters/` is the extension point for other hardware: the spec calls for
 `GenericClimateAdapter`, `DirectValveAdapter` and `TargetTemperatureAdapter`
 alongside `AqaraE1Z2MAdapter` eventually - only the Aqara/Z2M one exists so
-far, deliberately.
+far, deliberately. `sensor.py` is a separate, TRV-free platform for
+schedule templates (see "Nested schedule templates" below) - a config
+entry is either a room (forwarded to `climate.py`) or a template
+(forwarded to `sensor.py`), never both.
 
 ## Requirements on the Zigbee2MQTT side
 
@@ -118,19 +121,25 @@ added, install "Best TRV" from HACS like any other integration.
 1. Copy `custom_components/best_trv` into your Home
    Assistant `config/custom_components/` directory.
 2. Restart Home Assistant.
-3. Settings -> Devices & Services -> Add Integration -> "Best TRV".
-4. Step 1: name the room, pick the TRV(s), the room sensor, and the
+3. Settings -> Devices & Services -> Add Integration -> "Best TRV" ->
+   choose **New room** (a physical TRV setup - most people start here) or
+   **New schedule template** (a named, shareable schedule with no TRVs of
+   its own - see "Nested schedule templates" below; safe to skip for now
+   and add later).
+4. Room, step 1: name the room, pick the TRV(s), the room sensor, and the
    changeover sensor + the value it reports while cooling (`1` in the
    worked example).
-5. Step 2: confirm (or correct) the auto-guessed `number`/`select` entity
-   per TRV.
+5. Room, step 2: confirm (or correct) the auto-guessed `number`/`select`
+   entity per TRV.
 6. Afterwards, use the integration's **Configure** option (a menu: Tuning /
-   Schedule on/off) to adjust min/max/step per mode, the push threshold,
-   forced-refresh interval, changeover debounce, the optional stand-down
-   sensor, and whether the schedule is active at all - all without
-   recreating the entry.
-7. To actually build the weekly schedule, add the **dashboard card** (see
-   below) - that's the one place to edit it now, not a config-flow form.
+   Schedule on/off / Schedule source) to adjust min/max/step per mode, the
+   push threshold, forced-refresh interval, changeover debounce, the
+   optional stand-down sensor, whether the schedule is active at all, and
+   whether this room follows a shared template - all without recreating
+   the entry.
+7. To actually build a weekly schedule (a room's own, or a template's),
+   add the **dashboard card** (see below) - that's the one place to edit
+   it now, not a config-flow form.
 
 ## Dashboard card
 
@@ -156,6 +165,38 @@ the config-flow editor - both write the exact same schedule, through
 three dedicated services (`best_trv.set_schedule_day`,
 `set_schedule_days`, `set_schedule_enabled`) rather than a config-entry
 reload, so an edit shows up on the card instantly.
+
+The same card also edits a **schedule template** - point it at the
+template's `sensor.*` entity instead of a room's `climate.*` entity
+(`entity: sensor.your_template` in the YAML above, or pick it from the
+card picker). A template has no on/off toggle of its own, and writes
+through `best_trv.set_template_day`/`set_template_days` instead - see
+"Nested schedule templates" below. A room that follows a template shows
+its resolved schedule read-only, with a "Follows template: \<name\>"
+indicator instead of the toggle - edit the template itself to change it.
+
+### Nested schedule templates
+
+For a household where several rooms should follow the same rhythm
+("workday", "weekend") without manually re-copying the schedule into
+every room and again every time it changes: create a **schedule
+template** (Add Integration -> Best TRV -> New schedule template), edit
+its slots with the same dashboard card, then point one or more rooms at
+it (Configure -> Schedule source -> "Follow a shared template"). Editing
+the template then changes every room following it, live, on the next
+control tick - not a one-time copy.
+
+Templates can themselves have a parent, inheriting whatever days they
+don't override: a "Winter workday" template with a parent of "Workday"
+only needs to define the days that actually differ, and falls back to
+"Workday"'s values for the rest. A day left undefined anywhere in the
+whole chain simply doesn't auto-schedule, exactly like an empty schedule
+does today. Deleting a template re-parents whatever pointed at it (other
+templates, or rooms following it) to its own parent - deleting a root
+template with nothing above it just leaves them with no schedule source,
+the same safe fallback. A room following a template can't also locally
+override one day on top of it (switch back to "own schedule" first if
+you need that) - a deliberate v1 simplification, not a technical limit.
 
 ## Design decisions worth knowing about
 

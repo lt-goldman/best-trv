@@ -61,3 +61,50 @@ set_schedule_enabled:
       required: true
       selector:
         boolean:
+
+set_template_day:
+  target:
+    entity:
+      domain: sensor
+      integration: best_trv
+  fields:
+    day:
+      required: true
+      selector:
+        select:
+          options:
+            - "mon"
+            - "tue"
+            - "wed"
+            - "thu"
+            - "fri"
+            - "sat"
+            - "sun"
+    slots:
+      required: true
+      selector:
+        object:
+
+set_template_days:
+  target:
+    entity:
+      domain: sensor
+      integration: best_trv
+  fields:
+    days:
+      required: true
+      selector:
+        select:
+          multiple: true
+          options:
+            - "mon"
+            - "tue"
+            - "wed"
+            - "thu"
+            - "fri"
+            - "sat"
+            - "sun"
+    slots:
+      required: true
+      selector:
+        object:

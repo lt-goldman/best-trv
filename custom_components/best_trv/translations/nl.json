@@ -2,6 +2,13 @@
   "config": {
     "step": {
       "user": {
+        "title": "Best TRV: nieuw item",
+        "menu_options": {
+          "room": "Nieuwe kamer",
+          "template": "Nieuw schema-sjabloon"
+        }
+      },
+      "room": {
         "title": "Best TRV: nieuwe kamer",
         "description": "Eén item regelt één kamer. Kies de fysieke TRV('s), de echte kamertemperatuursensor, en de sensor die aangeeft dat de warmtepomp-kring op koelen staat.",
         "data": {
@@ -22,6 +29,17 @@
         "title": "Koppel de hulpentiteiten van elke TRV",
         "description": "Kies voor elk van de {trv_count} geselecteerde TRV('s) de number-entiteit die Zigbee2MQTT heeft aangemaakt voor external_temperature_input, en de select-entiteit voor de sensorbron. Waar een passende entiteit is gevonden, staat die al ingevuld.",
         "data": {}
+      },
+      "template": {
+        "title": "Best TRV: nieuw schema-sjabloon",
+        "description": "Een benoemd, deelbaar weekschema - geen TRV's bij betrokken. De tijd/temperatuur-sloten zelf bewerk je later, met dezelfde dashboardkaart die ook een kamer's eigen schema bewerkt, gericht op de entity van dit sjabloon. Koppel er één of meer kamers aan via Configureren → Schemabron.",
+        "data": {
+          "name": "Naam van het sjabloon",
+          "template_parent_entry_id": "Bovenliggend sjabloon (optioneel)"
+        },
+        "data_description": {
+          "template_parent_entry_id": "Erf de dagen die dit sjabloon zelf niet overschrijft van een ander sjabloon. Kies \"-\" voor een root-sjabloon zonder ouder."
+        }
       }
     },
     "error": {
@@ -37,7 +55,8 @@
         "title": "Best TRV: configureren",
         "menu_options": {
           "tuning": "Instellingen",
-          "schedule_toggle": "Schema aan/uit"
+          "schedule_toggle": "Schema aan/uit",
+          "schedule_source": "Schemabron"
         }
       },
       "tuning": {
@@ -67,6 +86,38 @@
         "data": {
           "schedule_enabled": "Schema actief"
         }
+      },
+      "schedule_source": {
+        "title": "Best TRV: schemabron",
+        "description": "Houd het eigen schema van deze kamer aan (bewerkt op zijn eigen kaart), of volg in plaats daarvan een gedeeld sjabloon - het sjabloon aanpassen verandert dan elke kamer die het volgt. Een kamer die een sjabloon volgt kan niet ook lokaal één dag overschrijven; zet 'm eerst terug op \"eigen\" als je dat nodig hebt.",
+        "data": {
+          "schedule_source": "Schemabron",
+          "schedule_template_entry_id": "Te volgen sjabloon"
+        },
+        "data_description": {
+          "schedule_template_entry_id": "Alleen gebruikt als de schemabron hierboven \"sjabloon\" is. Kies \"-\" als je nog geen sjabloon hebt aangemaakt - deze kamer plant dan simpelweg niet automatisch tot je dat doet."
+        }
+      },
+      "template_settings": {
+        "title": "Best TRV: schema-sjabloon",
+        "data": {
+          "name": "Naam van het sjabloon",
+          "template_parent_entry_id": "Bovenliggend sjabloon (optioneel)"
+        },
+        "data_description": {
+          "template_parent_entry_id": "Erf de dagen die dit sjabloon zelf niet overschrijft van een ander sjabloon. Kies \"-\" voor een root-sjabloon zonder ouder."
+        }
+      }
+    },
+    "error": {
+      "template_parent_cycle": "Dat zou dit sjabloon zijn eigen voorouder maken - kies een andere ouder."
+    }
+  },
+  "selector": {
+    "schedule_source": {
+      "options": {
+        "own": "Het eigen schema van deze kamer",
+        "template": "Volg een gedeeld sjabloon"
       }
     }
   },
@@ -110,6 +161,34 @@
         "enabled": {
           "name": "Ingeschakeld",
           "description": "Of het schema actief moet zijn."
+        }
+      }
+    },
+    "set_template_day": {
+      "name": "Schema-sjabloondag instellen",
+      "description": "Vervang de sloten van één weekdag op een schema-sjabloon. Wordt gebruikt door de Best TRV-schemakaart wanneer die op een sjabloon-entiteit gericht is - zie \"Schemadag instellen\" voor het equivalent op een kamer.",
+      "fields": {
+        "day": {
+          "name": "Dag",
+          "description": "Welke weekdag te vervangen."
+        },
+        "slots": {
+          "name": "Sloten",
+          "description": "De volledige nieuwe lijst {tijd, temperatuur}-sloten voor deze dag."
+        }
+      }
+    },
+    "set_template_days": {
+      "name": "Schema-sjabloondagen instellen",
+      "description": "Pas dezelfde schemasloten in één atomaire schrijfactie toe op meerdere weekdagen van een schema-sjabloon tegelijk. Wordt gebruikt door de \"ook toepassen op andere dagen\"-actie van de Best TRV-schemakaart op een sjabloon-entiteit.",
+      "fields": {
+        "days": {
+          "name": "Dagen",
+          "description": "Welke weekdagen te vervangen."
+        },
+        "slots": {
+          "name": "Sloten",
+          "description": "De volledige nieuwe lijst {tijd, temperatuur}-sloten om op elke geselecteerde dag toe te passen."
         }
       }
     }

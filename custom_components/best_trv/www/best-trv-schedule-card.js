@@ -1,12 +1,18 @@
 /**
  * Best TRV schedule card.
  *
- * A visual weekly heating/cooling schedule editor for a Best TRV climate
- * entity, shown as a horizontal segmented bar per day with draggable
- * slot markers - the alternative to the config-flow's own per-day form.
- * Both write the exact same `schedule` config-entry key; this card just
- * talks to it through three entity services (best_trv.set_schedule_day,
- * set_schedule_days, set_schedule_enabled) instead of an options flow.
+ * A visual weekly heating/cooling schedule editor, shown as a horizontal
+ * segmented bar per day with draggable slot markers. Works against two
+ * kinds of entity that both carry a `schedule` attribute in the same raw
+ * shape:
+ *   - a room's `climate.*` entity (climate.py) - its own schedule, or
+ *     (schedule_source === "template") a read-only view of whatever
+ *     template it follows, edited via best_trv.set_schedule_day/
+ *     set_schedule_days/set_schedule_enabled.
+ *   - a schedule template's `sensor.*` entity (sensor.py) - a named,
+ *     shareable node with no schedule_enabled concept of its own, edited
+ *     via best_trv.set_template_day/set_template_days.
+ * See `_isTemplateEntity`/`_isReadOnly` for the dispatch between the two.
  *
  * The draggable-marker *interaction concept* is inspired by the (GPLv3)
  * nielsfaber/scheduler-card, but every line here is original: no source
@@ -41,6 +47,8 @@
       temperature: "Temperature",
       chooseDay: "Choose a day",
       carriesOver: "Carries over",
+      followsTemplate: "Follows template",
+      readOnlyTemplate: "Edit the template itself to change this.",
     },
     nl: {
       days: { mon: "Maandag", tue: "Dinsdag", wed: "Woensdag", thu: "Donderdag", fri: "Vrijdag", sat: "Zaterdag", sun: "Zondag" },
@@ -55,6 +63,8 @@
       temperature: "Temperatuur",
       chooseDay: "Kies een dag",
       carriesOver: "Loopt door vanaf",
+      followsTemplate: "Volgt sjabloon",
+      readOnlyTemplate: "Bewerk het sjabloon zelf om dit te wijzigen.",
     },
   };
 
@@ -108,15 +118,20 @@
 
   class BestTrvScheduleCard extends HTMLElement {
     static getStubConfig(hass) {
+      // A "schedule" attribute exists on both a room's climate entity and
+      // a template's sensor entity (see sensor.py) - either is a valid
+      // card target.
       const entityId = Object.keys(hass.states).find(
-        (id) => id.startsWith("climate.") && hass.states[id].attributes.schedule !== undefined
+        (id) =>
+          (id.startsWith("climate.") || id.startsWith("sensor.")) &&
+          hass.states[id].attributes.schedule !== undefined
       );
       return { entity: entityId || "" };
     }
 
     setConfig(config) {
       if (!config || !config.entity) {
-        throw new Error("Please define a Best TRV climate entity");
+        throw new Error("Please define a Best TRV room or schedule template entity");
       }
       this._config = config;
       this._openDay = null; // which day's detail (bar + panel) is expanded
@@ -161,6 +176,8 @@
         attrs.schedule_temp_min,
         attrs.schedule_temp_max,
         attrs.friendly_name,
+        attrs.schedule_source,
+        attrs.schedule_template_name,
       ]);
       if (this._dragging || this._editingIndex !== null) return;
       if (snapshot === this._lastSnapshot) return;
@@ -186,8 +203,27 @@
       this._hass.callService("best_trv", service, Object.assign({ entity_id: this._config.entity }, data));
     }
 
+    // A template's sensor entity (sensor.py) and a room's climate entity
+    // (climate.py) carry the exact same "day"/"days"+"slots" field shapes,
+    // but register their writes under different service names - confirmed
+    // against the installed homeassistant package that entity services
+    // aren't shared across different entity domains, so this dispatch is
+    // required, not just cosmetic (calling the climate-only service name
+    // against a sensor.* entity would simply never reach it).
+    _isTemplateEntity() {
+      return this._config.entity.startsWith("sensor.");
+    }
+
+    // A room following a template (schedule_source === "template") has no
+    // schedule of its own to write - climate.py rejects it with a clear
+    // error if called anyway. The card avoids ever making that call by not
+    // offering editing at all in that case (see _paintBar/_renderDayPanel).
+    _isReadOnly() {
+      return !this._isTemplateEntity() && this._stateObj.attributes.schedule_source === "template";
+    }
+
     _setDay(day, slots) {
-      this._call("set_schedule_day", { day, slots });
+      this._call(this._isTemplateEntity() ? "set_template_day" : "set_schedule_day", { day, slots });
     }
 
     _render() {
@@ -208,13 +244,23 @@
         '</div><div style="font-size:12px;color:var(--secondary-text-color);">' +
         t.schedule +
         "</div>";
-      const toggle = document.createElement("input");
-      toggle.type = "checkbox";
-      toggle.checked = !!attrs.schedule_enabled;
-      toggle.style.cssText = "width:36px;height:20px;cursor:pointer;";
-      toggle.addEventListener("change", () => this._call("set_schedule_enabled", { enabled: toggle.checked }));
       header.appendChild(title);
-      header.appendChild(toggle);
+      if (this._isTemplateEntity()) {
+        // No schedule_enabled concept for a template - that's a per-room
+        // on/off switch, not something a shared schedule node has.
+      } else if (this._isReadOnly()) {
+        const indicator = document.createElement("div");
+        indicator.textContent = t.followsTemplate + ": " + (attrs.schedule_template_name || "?");
+        indicator.style.cssText = "font-size:12px;color:var(--secondary-text-color);text-align:right;";
+        header.appendChild(indicator);
+      } else {
+        const toggle = document.createElement("input");
+        toggle.type = "checkbox";
+        toggle.checked = !!attrs.schedule_enabled;
+        toggle.style.cssText = "width:36px;height:20px;cursor:pointer;";
+        toggle.addEventListener("change", () => this._call("set_schedule_enabled", { enabled: toggle.checked }));
+        header.appendChild(toggle);
+      }
       card.appendChild(header);
 
       DAY_KEYS.forEach((day) => {
@@ -284,20 +330,26 @@
         }
         return;
       }
+      const readOnly = this._isReadOnly();
       // Clicking anywhere in a segment opens that slot's editor too, not
       // just its thin marker - a much bigger, more forgiving target than
       // the marker's own hit-area, and the natural expectation ("I clicked
-      // the warm part of the bar, so I get that slot").
+      // the warm part of the bar, so I get that slot"). Not wired up at
+      // all when read-only (a room following a template) - there's no
+      // slot of this room's own to edit.
       const addSeg = (startPct, widthPct, color, slotIndex) => {
         const seg = document.createElement("div");
         seg.style.cssText =
-          "position:absolute;top:0;bottom:0;left:" + startPct + "%;width:" + widthPct + "%;background:" + color + ";border-radius:9px;cursor:pointer;";
-        seg.addEventListener("click", (e) => {
-          e.stopPropagation();
-          this._openDay = day;
-          this._editingIndex = this._editingIndex === slotIndex ? null : slotIndex;
-          this._render();
-        });
+          "position:absolute;top:0;bottom:0;left:" + startPct + "%;width:" + widthPct + "%;background:" + color + ";border-radius:9px;" +
+          (readOnly ? "" : "cursor:pointer;");
+        if (!readOnly) {
+          seg.addEventListener("click", (e) => {
+            e.stopPropagation();
+            this._openDay = day;
+            this._editingIndex = this._editingIndex === slotIndex ? null : slotIndex;
+            this._render();
+          });
+        }
         bar.appendChild(seg);
       };
       // The stretch before the first slot's own start time is still
@@ -333,17 +385,21 @@
         handle.style.cssText =
           "width:4px;height:calc(100% - 8px);background:#fff;border-radius:2px;box-shadow:0 0 0 1px rgba(0,0,0,.3);pointer-events:none;";
         marker.appendChild(handle);
-        marker.addEventListener("pointerdown", (e) => this._startDrag(e, day, i, bar, slots));
-        marker.addEventListener("click", (e) => {
-          e.stopPropagation();
-          if (this._justDragged) {
-            this._justDragged = false;
-            return;
-          }
-          this._openDay = day;
-          this._editingIndex = this._editingIndex === i ? null : i;
-          this._render();
-        });
+        if (readOnly) {
+          marker.style.cursor = "default";
+        } else {
+          marker.addEventListener("pointerdown", (e) => this._startDrag(e, day, i, bar, slots));
+          marker.addEventListener("click", (e) => {
+            e.stopPropagation();
+            if (this._justDragged) {
+              this._justDragged = false;
+              return;
+            }
+            this._openDay = day;
+            this._editingIndex = this._editingIndex === i ? null : i;
+            this._render();
+          });
+        }
         bar.appendChild(marker);
       });
     }
@@ -405,6 +461,14 @@
           : t.noSlots;
         empty.style.cssText = "font-size:12px;color:var(--secondary-text-color);margin-bottom:8px;";
         panel.appendChild(empty);
+      }
+
+      if (this._isReadOnly()) {
+        const hint = document.createElement("div");
+        hint.textContent = t.readOnlyTemplate;
+        hint.style.cssText = "font-size:12px;color:var(--secondary-text-color);font-style:italic;";
+        panel.appendChild(hint);
+        return panel;
       }
 
       const actions = document.createElement("div");
@@ -543,7 +607,10 @@
       applyBtn.style.cssText = "align-self:flex-start;margin-top:4px;font-size:12px;padding:4px 10px;border-radius:6px;border:1px solid var(--divider-color);background:var(--card-background-color);color:var(--primary-text-color);cursor:pointer;";
       applyBtn.addEventListener("click", () => {
         if (!chosen.size) return;
-        this._call("set_schedule_days", { days: [...chosen], slots });
+        this._call(this._isTemplateEntity() ? "set_template_days" : "set_schedule_days", {
+          days: [...chosen],
+          slots,
+        });
         this._pushOpen = false;
         this._render();
       });

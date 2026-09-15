@@ -3,7 +3,23 @@ from __future__ import annotations
 
 DOMAIN = "best_trv"
 
-PLATFORMS = ["climate"]
+# Two kinds of best_trv config entries share this one integration domain:
+# a "room" (a physical TRV setup - everything this integration did before
+# nested schedule templates existed) and a "template" (a named, shareable
+# schedule node with no TRVs of its own - see sensor.py). Absent on every
+# entry created before this distinction existed, which is exactly why the
+# fallback below is "room": every pre-existing installation keeps working
+# unchanged, no migration needed.
+CONF_ENTRY_TYPE = "entry_type"
+DEFAULT_ENTRY_TYPE = "room"
+ENTRY_TYPE_ROOM = "room"
+ENTRY_TYPE_TEMPLATE = "template"
+
+# Which HA platform(s) to forward each entry kind to - see __init__.py.
+PLATFORMS_BY_ENTRY_TYPE = {
+    ENTRY_TYPE_ROOM: ["climate"],
+    ENTRY_TYPE_TEMPLATE: ["sensor"],
+}
 
 # -- config keys ------------------------------------------------------------
 
@@ -40,9 +56,24 @@ CONF_SUSPEND_ACTIVE_VALUE = "suspend_active_value"
 # Schedule: a per-day list of {"time": "HH:MM:SS", "temperature": float}
 # slots, JSON-safe for config-entry storage. See controller.ScheduleSlot /
 # get_active_schedule_slot for how it's interpreted, and DAY_KEYS there for
-# the canonical day ordering/keys ("mon".."sun").
+# the canonical day ordering/keys ("mon".."sun"). For a "template" entry, a
+# day key's absence means "inherit from the parent template" rather than
+# "no slots" - see controller.resolve_effective_schedule_raw.
 CONF_SCHEDULE_ENABLED = "schedule_enabled"
 CONF_SCHEDULE = "schedule"
+
+# A template entry's parent, stored as another best_trv entry's entry_id
+# (not an entity_id - so renaming the entity later can't silently break
+# the chain). Absent means "this is a root template."
+CONF_TEMPLATE_PARENT_ENTRY_ID = "template_parent_entry_id"
+
+# A room either keeps its own schedule (default, today's behaviour,
+# unchanged) or follows a template entry's live, resolved schedule.
+CONF_SCHEDULE_SOURCE = "schedule_source"
+DEFAULT_SCHEDULE_SOURCE = "own"
+SCHEDULE_SOURCE_OWN = "own"
+SCHEDULE_SOURCE_TEMPLATE = "template"
+CONF_SCHEDULE_TEMPLATE_ENTRY_ID = "schedule_template_entry_id"
 
 # -- defaults -----------------------------------------------------------
 

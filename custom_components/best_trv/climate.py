@@ -17,8 +17,14 @@ import voluptuous as vol
 from homeassistant.components.climate import ClimateEntity
 from homeassistant.components.climate.const import ClimateEntityFeature, HVACMode
 from homeassistant.config_entries import ConfigEntry
-from homeassistant.const import ATTR_TEMPERATURE, STATE_UNAVAILABLE, STATE_UNKNOWN, UnitOfTemperature
+from homeassistant.const import (
+    ATTR_TEMPERATURE,
+    STATE_UNAVAILABLE,
+    STATE_UNKNOWN,
+    UnitOfTemperature,
+)
 from homeassistant.core import Event, HomeAssistant, callback
+from homeassistant.exceptions import HomeAssistantError
 from homeassistant.helpers import config_validation as cv, entity_platform
 from homeassistant.helpers.device_registry import DeviceInfo
 from homeassistant.helpers.entity_platform import AddEntitiesCallback
@@ -44,18 +50,23 @@ from .const import (
     CONF_ROOM_SENSOR,
     CONF_SCHEDULE,
     CONF_SCHEDULE_ENABLED,
+    CONF_SCHEDULE_SOURCE,
+    CONF_SCHEDULE_TEMPLATE_ENTRY_ID,
     CONF_SENSOR_SELECT,
     CONF_SUSPEND_ACTIVE_VALUE,
     CONF_SUSPEND_SENSOR,
+    CONF_TEMPLATE_PARENT_ENTRY_ID,
     CONF_TRV_MAPPING,
     DEFAULT_ASSUMED_DEADBAND,
     DEFAULT_FEED_MAX,
     DEFAULT_FEED_MIN,
     DEFAULT_SCHEDULE_ENABLED,
+    DEFAULT_SCHEDULE_SOURCE,
     DEFAULT_SUSPEND_ACTIVE_VALUE,
     DEFAULT_SUSPEND_SENSOR,
     DOMAIN,
     MAX_SCHEDULE_SLOTS_PER_DAY,
+    SCHEDULE_SOURCE_TEMPLATE,
     UPDATE_TICK_SECONDS,
 )
 from .controller import (
@@ -69,6 +80,7 @@ from .controller import (
     estimate_hvac_action,
     get_active_schedule_slot,
     parse_schedule_config,
+    resolve_effective_schedule_raw,
     round_to_step,
     should_push_feed_temperature,
 )
@@ -195,15 +207,28 @@ class BestTRV(ClimateEntity, RestoreEntity):
         self._schedule_enabled: bool = options.get(
             CONF_SCHEDULE_ENABLED, data.get(CONF_SCHEDULE_ENABLED, DEFAULT_SCHEDULE_ENABLED)
         )
-        # The raw, JSON-safe shape (exactly what's stored in the config
-        # entry) - kept alongside the parsed self._schedule below as the
-        # single source both are derived from, so the schedule card's
-        # "schedule" attribute never needs a separate "serialize
-        # ScheduleSlot back to a dict" path that could drift out of sync
-        # with parse_schedule_config.
-        self._schedule_raw: dict[str, list[dict[str, Any]]] = dict(
-            options.get(CONF_SCHEDULE, data.get(CONF_SCHEDULE, {}))
+        # Either "own" (this room's own CONF_SCHEDULE, exactly today's
+        # behaviour) or "template" (follow another entry's live-resolved
+        # schedule chain - see _resolve_schedule_raw). Absent on every
+        # entry created before this existed, hence the default.
+        self._schedule_source: str = options.get(
+            CONF_SCHEDULE_SOURCE, data.get(CONF_SCHEDULE_SOURCE, DEFAULT_SCHEDULE_SOURCE)
         )
+        self._schedule_template_entry_id: str | None = options.get(
+            CONF_SCHEDULE_TEMPLATE_ENTRY_ID, data.get(CONF_SCHEDULE_TEMPLATE_ENTRY_ID)
+        )
+        # Resolved fresh by _resolve_schedule_raw whenever schedule_source
+        # is "template" - the followed template's own display name, purely
+        # for the card to show "follows: <name>" (extra_state_attributes).
+        self._schedule_template_name: str | None = None
+        # The raw, JSON-safe shape - either this room's own CONF_SCHEDULE,
+        # or (schedule_source == "template") the already-merged result of
+        # walking the template chain. Kept alongside the parsed
+        # self._schedule below as the single source both are derived from,
+        # so the schedule card's "schedule" attribute never needs a
+        # separate "serialize ScheduleSlot back to a dict" path that could
+        # drift out of sync with parse_schedule_config.
+        self._schedule_raw: dict[str, list[dict[str, Any]]] = self._resolve_schedule_raw()
         self._schedule: dict[str, list[ScheduleSlot]] = parse_schedule_config(self._schedule_raw)
         # Identity of the schedule slot last applied to target_temperature.
         # Only re-applying when this changes (a real transition) is what
@@ -387,6 +412,11 @@ class BestTRV(ClimateEntity, RestoreEntity):
             "schedule": self._schedule_raw,
             "schedule_temp_min": min(self._heat_min, self._cool_min),
             "schedule_temp_max": max(self._heat_max, self._cool_max),
+            # So the card can show "own schedule" vs "follows: <name>"
+            # instead of silently letting you edit a room that's actually
+            # just mirroring a template - see _resolve_schedule_raw.
+            "schedule_source": self._schedule_source,
+            "schedule_template_name": self._schedule_template_name,
         }
 
     # -- HA entity commands -----------------------------------------------
@@ -410,6 +440,62 @@ class BestTRV(ClimateEntity, RestoreEntity):
             )
         self.async_write_ha_state()
         await self._async_update_control(force=True)
+
+    def _own_schedule_raw(self) -> dict[str, list[dict[str, Any]]]:
+        return dict(
+            self._entry.options.get(CONF_SCHEDULE, self._entry.data.get(CONF_SCHEDULE, {}))
+        )
+
+    def _resolve_schedule_raw(self) -> dict[str, list[dict[str, Any]]]:
+        """This room's own schedule, or the live-resolved template chain.
+
+        Re-run every control tick (see _async_update_control), never
+        cached beyond that - a followed template can be edited at any
+        moment from its own card, and a room following it should reflect
+        that on its very next tick, the same way _real_room_temperature is
+        re-read fresh every tick rather than cached from setup. Reads
+        straight from `hass.config_entries` (never `hass.states`), so
+        resolution never depends on whether the template's own entity has
+        finished loading - see the plan's "config-entry-only resolution".
+        """
+        self._schedule_template_name = None
+        if (
+            self._schedule_source != SCHEDULE_SOURCE_TEMPLATE
+            or not self._schedule_template_entry_id
+        ):
+            return self._own_schedule_raw()
+
+        raw_chain: list[dict[str, list[dict[str, Any]]]] = []
+        entry_id: str | None = self._schedule_template_entry_id
+        seen: set[str] = set()
+        while entry_id and entry_id not in seen:
+            seen.add(entry_id)
+            template_entry = self.hass.config_entries.async_get_entry(entry_id)
+            if template_entry is None:
+                break
+            if self._schedule_template_name is None:
+                # entry.title, not data[CONF_NAME] - see sensor.py's
+                # native_value for why title is the one field a rename
+                # (BestTRVTemplateOptionsFlow) actually keeps current.
+                self._schedule_template_name = template_entry.title
+            raw_chain.append(
+                template_entry.options.get(
+                    CONF_SCHEDULE, template_entry.data.get(CONF_SCHEDULE, {})
+                )
+            )
+            entry_id = template_entry.options.get(
+                CONF_TEMPLATE_PARENT_ENTRY_ID,
+                template_entry.data.get(CONF_TEMPLATE_PARENT_ENTRY_ID),
+            )
+
+        if not raw_chain:
+            # The followed template is missing (deleted, or a stale/broken
+            # reference) - fall back to "no schedule" rather than crash.
+            # __init__.async_remove_entry already re-parents this field
+            # away the moment a template is actually removed through HA,
+            # so this only covers a dangling reference edge case.
+            return {}
+        return resolve_effective_schedule_raw(raw_chain)
 
     async def _async_apply_schedule(self) -> None:
         """Apply the schedule's temperature for right now, if it changed.
@@ -467,6 +553,17 @@ class BestTRV(ClimateEntity, RestoreEntity):
     async def _async_write_schedule_days(
         self, updates: dict[str, list[dict[str, Any]]]
     ) -> None:
+        if self._schedule_source == SCHEDULE_SOURCE_TEMPLATE:
+            # Writing here would silently be discarded on the very next
+            # tick anyway (_resolve_schedule_raw overwrites it from the
+            # followed template) - a clear error beats a confusing "my
+            # edit didn't stick" a moment later. The card itself won't
+            # offer inline editing for a room in this mode; this only
+            # matters for a direct service call.
+            raise HomeAssistantError(
+                "This room follows a schedule template - edit the template "
+                "itself, or switch this room back to its own schedule first."
+            )
         raw_schedule = dict(self._schedule_raw)
         for day, slots in updates.items():
             raw_schedule[day] = [
@@ -581,6 +678,15 @@ class BestTRV(ClimateEntity, RestoreEntity):
         await self._async_update_control()
 
     async def _async_update_control(self, force: bool = False) -> None:
+        # Re-resolve every tick, not just at setup - a followed template
+        # can be edited live from its own card at any time, and this is
+        # cheap (in-memory config-entry lookups only, see
+        # _resolve_schedule_raw). A room with schedule_source == "own"
+        # takes the same code path and gets back exactly what it had.
+        if self._schedule_source == SCHEDULE_SOURCE_TEMPLATE:
+            self._schedule_raw = self._resolve_schedule_raw()
+            self._schedule = parse_schedule_config(self._schedule_raw)
+
         # Suspend only means anything while the user's own AUTO/OFF choice
         # would otherwise be actively driving the TRV - an explicit OFF
         # already means "no control", so there's nothing to additionally

@@ -26,6 +26,7 @@ from controller import (  # noqa: E402
     get_active_schedule_slot,
     parse_schedule_config,
     parse_time_string,
+    resolve_effective_schedule_raw,
     round_to_step,
     should_push_feed_temperature,
 )
@@ -310,6 +311,53 @@ def test_parse_schedule_config_round_trips_from_json_safe_form():
         "mon": [ScheduleSlot(time_of_day(7, 0, 0), 21.0)],
         "tue": [],
     }
+
+
+# -- resolve_effective_schedule_raw -------------------------------------------
+
+_MON_SLOT = [{"time": "07:00:00", "temperature": 21.0}]
+_TUE_SLOT = [{"time": "07:00:00", "temperature": 20.0}]
+
+
+def test_resolve_schedule_own_day_wins_over_parent():
+    own = {"mon": _MON_SLOT}
+    parent = {"mon": _TUE_SLOT}
+    assert resolve_effective_schedule_raw([own, parent]) == {"mon": _MON_SLOT}
+
+
+def test_resolve_schedule_absent_day_falls_through_to_parent():
+    # The worked example agreed with the user: "Werkdag" (child) says
+    # nothing about tuesday, so "Standaard" (parent)'s tuesday wins.
+    child = {"mon": _MON_SLOT}
+    parent = {"mon": _TUE_SLOT, "tue": _TUE_SLOT}
+    assert resolve_effective_schedule_raw([child, parent]) == {
+        "mon": _MON_SLOT,
+        "tue": _TUE_SLOT,
+    }
+
+
+def test_resolve_schedule_explicit_empty_day_wins_over_parents_non_empty_day():
+    # A day key *present* (even as []) means "this node overrides to no
+    # slots" - it wins even though the parent does have slots for that day.
+    child = {"sun": []}
+    parent = {"sun": _MON_SLOT}
+    assert resolve_effective_schedule_raw([child, parent]) == {"sun": []}
+
+
+def test_resolve_schedule_day_absent_everywhere_is_absent_from_result():
+    assert resolve_effective_schedule_raw([{"mon": _MON_SLOT}, {}]) == {"mon": _MON_SLOT}
+    assert "tue" not in resolve_effective_schedule_raw([{"mon": _MON_SLOT}, {}])
+
+
+def test_resolve_schedule_walks_a_three_level_chain():
+    grandchild = {}
+    child = {}
+    root = {"mon": _MON_SLOT}
+    assert resolve_effective_schedule_raw([grandchild, child, root]) == {"mon": _MON_SLOT}
+
+
+def test_resolve_schedule_empty_chain_is_no_schedule():
+    assert resolve_effective_schedule_raw([]) == {}
 
 
 # -- CommandQueue -------------------------------------------------------------
