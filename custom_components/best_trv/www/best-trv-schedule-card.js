@@ -245,21 +245,30 @@
         t.schedule +
         "</div>";
       header.appendChild(title);
-      if (this._isTemplateEntity()) {
+      if (!this._isTemplateEntity()) {
         // No schedule_enabled concept for a template - that's a per-room
-        // on/off switch, not something a shared schedule node has.
-      } else if (this._isReadOnly()) {
-        const indicator = document.createElement("div");
-        indicator.textContent = t.followsTemplate + ": " + (attrs.schedule_template_name || "?");
-        indicator.style.cssText = "font-size:12px;color:var(--secondary-text-color);text-align:right;";
-        header.appendChild(indicator);
-      } else {
+        // on/off switch, not something a shared schedule node has. A room
+        // always gets one, including a room that follows a template: what
+        // the schedule says comes from the template, but whether it is
+        // applied to this room at all is still this room's own choice.
+        // Hiding it in read-only mode (an earlier version did) left a
+        // room that followed a template with no way to switch its
+        // schedule on from the card.
+        const right = document.createElement("div");
+        right.style.cssText = "display:flex;align-items:center;gap:10px;";
+        if (this._isReadOnly()) {
+          const indicator = document.createElement("div");
+          indicator.textContent = t.followsTemplate + ": " + (attrs.schedule_template_name || "?");
+          indicator.style.cssText = "font-size:12px;color:var(--secondary-text-color);text-align:right;";
+          right.appendChild(indicator);
+        }
         const toggle = document.createElement("input");
         toggle.type = "checkbox";
         toggle.checked = !!attrs.schedule_enabled;
         toggle.style.cssText = "width:36px;height:20px;cursor:pointer;";
         toggle.addEventListener("change", () => this._call("set_schedule_enabled", { enabled: toggle.checked }));
-        header.appendChild(toggle);
+        right.appendChild(toggle);
+        header.appendChild(right);
       }
       card.appendChild(header);
 
