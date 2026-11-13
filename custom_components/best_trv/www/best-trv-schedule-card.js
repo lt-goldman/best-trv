@@ -461,6 +461,7 @@
         let minutes = Math.round((pct * 1440) / 15) * 15; // snap to 15 minutes
         d.slots[d.index] = Object.assign({}, d.slots[d.index], { time: fromMinutes(minutes) });
         this._paintBar(d.barEl, d.day, sortedSlots(d.slots), ...this._tempBounds());
+        this._showDragLabel(d, minutes);
       };
       const onUp = () => {
         const d = this._dragging;
@@ -468,6 +469,7 @@
         document.removeEventListener("pointermove", onMove);
         document.removeEventListener("pointerup", onUp);
         if (!d) return;
+        if (d.label) d.label.remove();
         if (d.moved) {
           this._justDragged = true;
           this._setDay(d.day, sortedSlots(d.slots));
@@ -475,6 +477,29 @@
       };
       document.addEventListener("pointermove", onMove);
       document.addEventListener("pointerup", onUp);
+    }
+
+    // A small readout above the bar that follows the marker while it is
+    // being dragged, so the exact (15-minute-snapped) time is visible as
+    // you move instead of only after letting go. `_paintBar` empties the
+    // bar on every move, which also removes the previous label - so it is
+    // simply appended again after each repaint. Near either end of the bar
+    // it is anchored to the marker's edge instead of centred, so it never
+    // hangs outside the card.
+    _showDragLabel(d, minutes) {
+      if (!d.label) {
+        d.label = document.createElement("div");
+        d.label.style.cssText =
+          "position:absolute;bottom:calc(100% + 6px);padding:2px 8px;border-radius:6px;" +
+          "background:var(--primary-text-color);color:var(--card-background-color, #000);" +
+          "font-size:12px;font-weight:500;white-space:nowrap;pointer-events:none;z-index:3;" +
+          "box-shadow:0 1px 4px rgba(0,0,0,.4);";
+      }
+      const pct = (minutes / 1440) * 100;
+      d.label.textContent = fromMinutes(minutes).slice(0, 5) + " → " + d.slots[d.index].temperature + "°C";
+      d.label.style.left = pct + "%";
+      d.label.style.transform = pct < 10 ? "none" : pct > 90 ? "translateX(-100%)" : "translateX(-50%)";
+      d.barEl.appendChild(d.label);
     }
 
     _renderDayPanel(day, slots, tempMin, tempMax, t) {
