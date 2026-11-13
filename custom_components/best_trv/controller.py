@@ -269,8 +269,9 @@ def schedule_choice_from_state(
     follows_shared: bool,
     shared_entry_id: str | None,
     known_shared_entry_ids: Collection[str],
+    has_own_schedule: bool,
 ) -> str:
-    """Collapse a room's three stored schedule fields into the one dropdown value.
+    """Collapse a room's stored schedule fields into the one dropdown value.
 
     The room stores `enabled`, a source ("own" vs. a shared schedule) and the
     followed schedule's entry id as three separate keys; the user thinks of it
@@ -279,11 +280,16 @@ def schedule_choice_from_state(
     never got picked) also reads as "none": the control loop already treats
     that as "no schedule" (see climate.py `_resolve_schedule_raw`), so the
     dropdown shows what the room actually does.
+
+    "Own" is a legacy choice: it only exists for a room that really has a
+    schedule of its own stored (set up before shared schedules existed). A
+    room on its own source with nothing stored runs nothing, so it reads as
+    "none" - there is no "own" entry to show for it.
     """
     if not enabled:
         return SCHEDULE_CHOICE_NONE
     if not follows_shared:
-        return SCHEDULE_CHOICE_OWN
+        return SCHEDULE_CHOICE_OWN if has_own_schedule else SCHEDULE_CHOICE_NONE
     if shared_entry_id and shared_entry_id in known_shared_entry_ids:
         return shared_entry_id
     return SCHEDULE_CHOICE_NONE

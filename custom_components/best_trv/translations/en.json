@@ -81,7 +81,7 @@
       },
       "schedule": {
         "title": "Best TRV: schedule",
-        "description": "Choose which schedule this room follows. Picking a schedule switches it on; \"No schedule\" switches it off. \"This room only\" uses a schedule just for this room, edited on its own card. Changing a shared schedule changes every room that follows it, and a room that follows one can't override a single day.",
+        "description": "Choose which schedule this room follows. Picking a schedule switches it on; \"No schedule\" switches it off. Changing a shared schedule changes every room that follows it, and a room that follows one can't override a single day. A room that was set up before shared schedules existed keeps its own schedule as an extra choice.",
         "data": {
           "schedule_choice": "Schedule for this room"
         },
@@ -108,7 +108,7 @@
     "schedule_choice": {
       "options": {
         "none": "No schedule",
-        "own": "This room only"
+        "own": "This room's own schedule"
       }
     },
     "schedule_parent": {

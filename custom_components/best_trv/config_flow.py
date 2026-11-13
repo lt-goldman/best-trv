@@ -116,12 +116,19 @@ def _template_select_options(
     return options
 
 
-def _schedule_choice_options(hass: HomeAssistant) -> list[dict[str, str]]:
-    """The room's single schedule dropdown: off, own, then every shared schedule."""
-    options = [
-        {"value": SCHEDULE_CHOICE_NONE, "label": "No schedule"},
-        {"value": SCHEDULE_CHOICE_OWN, "label": "This room only"},
-    ]
+def _schedule_choice_options(
+    hass: HomeAssistant, *, has_own_schedule: bool
+) -> list[dict[str, str]]:
+    """The room's single schedule dropdown: off, then every shared schedule.
+
+    A room that already has a schedule of its own stored (set up before
+    shared schedules existed) additionally gets that as a choice, so it can
+    be switched back on - nothing is lost. A room without one never sees it:
+    for such a room it would be indistinguishable from "No schedule".
+    """
+    options = [{"value": SCHEDULE_CHOICE_NONE, "label": "No schedule"}]
+    if has_own_schedule:
+        options.append({"value": SCHEDULE_CHOICE_OWN, "label": "This room's own schedule"})
     options.extend(
         {"value": entry.entry_id, "label": entry.title} for entry in _template_entries(hass)
     )
@@ -350,7 +357,7 @@ class BestTRVOptionsFlow(config_entries.OptionsFlow):
 
     A menu rather than one giant form: "Tuning" holds the heat/cool/timing
     fields (plus the stand-down sensor), "Schedule" is a single dropdown
-    (no schedule / this room only / a shared schedule). The weekly schedule itself is no longer edited here - the
+    (no schedule / a shared schedule). The weekly schedule itself is no longer edited here - the
     dashboard card (custom_components/best_trv/www/) is the one editing
     surface for it now, both reading and writing the exact same `schedule`
     config-entry key this options flow used to expose as one form per
@@ -438,7 +445,7 @@ class BestTRVOptionsFlow(config_entries.OptionsFlow):
     async def async_step_schedule(
         self, user_input: dict[str, Any] | None = None
     ) -> FlowResult:
-        """One choice: no schedule, this room's own, or a shared schedule.
+        """One choice: no schedule, or a shared schedule (or a legacy own one).
 
         The room still stores three keys (enabled, source, followed
         schedule's entry id) - see controller.schedule_choice_from_state /
@@ -448,6 +455,7 @@ class BestTRVOptionsFlow(config_entries.OptionsFlow):
         """
         current = self._current_options()
         shared_ids = {entry.entry_id for entry in _template_entries(self.hass)}
+        has_own_schedule = bool(current.get(CONF_SCHEDULE))
         if user_input is not None:
             enabled, shared_entry_id = schedule_state_from_choice(
                 user_input[CONF_SCHEDULE_CHOICE]
@@ -467,12 +475,15 @@ class BestTRVOptionsFlow(config_entries.OptionsFlow):
             == SCHEDULE_SOURCE_TEMPLATE,
             shared_entry_id=current.get(CONF_SCHEDULE_TEMPLATE_ENTRY_ID),
             known_shared_entry_ids=shared_ids,
+            has_own_schedule=has_own_schedule,
         )
         schema = vol.Schema(
             {
                 vol.Required(CONF_SCHEDULE_CHOICE, default=default_choice): selector.SelectSelector(
                     selector.SelectSelectorConfig(
-                        options=_schedule_choice_options(self.hass),
+                        options=_schedule_choice_options(
+                            self.hass, has_own_schedule=has_own_schedule
+                        ),
                         translation_key=_CHOICE_TRANSLATION_KEY,
                     )
                 )

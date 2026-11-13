@@ -81,7 +81,7 @@
       },
       "schedule": {
         "title": "Best TRV: schema",
-        "description": "Kies welk schema deze kamer volgt. Een schema kiezen zet het meteen aan; \"Geen schema\" zet het uit. \"Alleen deze kamer\" gebruikt een schema dat alleen voor deze kamer geldt, bewerkt op de eigen kaart. Een gedeeld schema aanpassen verandert elke kamer die het volgt, en een kamer die er een volgt kan niet één dag apart overschrijven.",
+        "description": "Kies welk schema deze kamer volgt. Een schema kiezen zet het meteen aan; \"Geen schema\" zet het uit. Een gedeeld schema aanpassen verandert elke kamer die het volgt, en een kamer die er een volgt kan niet één dag apart overschrijven. Een kamer die is ingesteld voordat gedeelde schema's bestonden, houdt zijn eigen schema als extra keuze.",
         "data": {
           "schedule_choice": "Schema voor deze kamer"
         },
@@ -108,7 +108,7 @@
     "schedule_choice": {
       "options": {
         "none": "Geen schema",
-        "own": "Alleen deze kamer"
+        "own": "Het eigen schema van deze kamer"
       }
     },
     "schedule_parent": {

@@ -49,6 +49,7 @@
       carriesOver: "Carries over",
       follows: "Follows",
       readOnlyShared: "Edit that schedule itself to change this.",
+      noScheduleHint: "This room has no schedule. Choose one under Configure \u2192 Schedule.",
     },
     nl: {
       days: { mon: "Maandag", tue: "Dinsdag", wed: "Woensdag", thu: "Donderdag", fri: "Vrijdag", sat: "Zaterdag", sun: "Zondag" },
@@ -65,6 +66,7 @@
       carriesOver: "Loopt door vanaf",
       follows: "Volgt",
       readOnlyShared: "Bewerk dat schema zelf om dit te wijzigen.",
+      noScheduleHint: "Deze kamer heeft geen schema. Kies er een via Configureren \u2192 Schema.",
     },
   };
 
@@ -222,6 +224,19 @@
       return !this._isTemplateEntity() && this._stateObj.attributes.schedule_source === "template";
     }
 
+    // A room that follows no shared schedule and has no schedule of its own
+    // either - the normal state of a new room - has nothing to show or edit.
+    // An own schedule is a legacy concept, kept only so a room that already
+    // has one keeps working; offering an editable grid (or an on/off
+    // checkbox) here would let someone draw a schedule that nothing runs.
+    _isUnscheduled() {
+      return (
+        !this._isTemplateEntity() &&
+        this._stateObj.attributes.schedule_source !== "template" &&
+        Object.keys(this._schedule()).length === 0
+      );
+    }
+
     _setDay(day, slots) {
       this._call(this._isTemplateEntity() ? "set_template_day" : "set_schedule_day", { day, slots });
     }
@@ -245,7 +260,7 @@
         t.schedule +
         "</div>";
       header.appendChild(title);
-      if (!this._isTemplateEntity()) {
+      if (!this._isTemplateEntity() && !this._isUnscheduled()) {
         // No schedule_enabled concept for a template - that's a per-room
         // on/off switch, not something a shared schedule node has. A room
         // always gets one, including a room that follows a template: what
@@ -272,9 +287,16 @@
       }
       card.appendChild(header);
 
-      DAY_KEYS.forEach((day) => {
-        card.appendChild(this._renderDayRow(day, schedule, tempMin, tempMax, t));
-      });
+      if (this._isUnscheduled()) {
+        const hint = document.createElement("div");
+        hint.textContent = t.noScheduleHint;
+        hint.style.cssText = "font-size:13px;color:var(--secondary-text-color);";
+        card.appendChild(hint);
+      } else {
+        DAY_KEYS.forEach((day) => {
+          card.appendChild(this._renderDayRow(day, schedule, tempMin, tempMax, t));
+        });
+      }
 
       this._root.innerHTML = "";
       this._root.appendChild(card);

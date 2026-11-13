@@ -137,11 +137,11 @@ added, install "Best TRV" from HACS like any other integration.
    Schedule) to adjust min/max/step per mode, the push threshold,
    forced-refresh interval, changeover debounce and the optional
    stand-down sensor, and to choose which schedule this room follows:
-   **No schedule**, **This room only**, or one of your shared schedules.
-   Picking a schedule also switches it on - all without recreating the
-   entry.
-7. To actually build a weekly schedule (a room's own, or a shared one),
-   add the **dashboard card** (see below) - that's the one place to edit
+   **No schedule** or one of your shared schedules. Picking a schedule
+   also switches it on - all without recreating the entry.
+7. To actually build a weekly schedule, create it with Add entry ->
+   Schedule and add the **dashboard card** (see below) - that's the one
+   place to edit
    it now, not a config-flow form.
 
 ## Dashboard card
@@ -191,9 +191,12 @@ every room following it, live, on the next control tick - not a
 one-time copy.
 
 A room's Schedule choice is a single dropdown: **No schedule** (switched
-off), **This room only** (the room's own schedule, edited on its own
-card) or one of the shared schedules. Anything but "No schedule" is
-switched on automatically.
+off) or one of the shared schedules. Picking a schedule switches it on
+automatically. A room that was set up before shared schedules existed and
+already has a schedule of its own keeps it: that schedule is offered as an
+extra choice for that room only, and its card stays editable. A room
+without any schedule shows a short hint on its card instead of an empty
+grid.
 
 Schedules can themselves be **based on** another schedule, inheriting
 whatever days they don't fill in: a "Winter workday" schedule based on
@@ -204,9 +207,9 @@ schedule does today. Deleting a schedule re-parents whatever pointed at
 it (other schedules, or rooms following it) to the one it was based on -
 deleting a schedule that isn't based on anything just leaves them with no
 schedule, the same safe fallback. A room following a shared schedule
-can't also locally override one day on top of it (choose "This room
-only" if you need that) - a deliberate v1 simplification, not a
-technical limit.
+can't also locally override one day on top of it - if one room needs a
+different Saturday, make a schedule based on the shared one and change
+only that day. A deliberate v1 simplification, not a technical limit.
 
 ## Design decisions worth knowing about
 

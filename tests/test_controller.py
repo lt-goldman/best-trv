@@ -438,41 +438,46 @@ def test_command_queue_tracks_multiple_keys_independently():
 KNOWN = {"werkdag", "weekend"}
 
 
+def _choice(*, enabled, follows_shared, shared_id=None, has_own=False):
+    return schedule_choice_from_state(
+        enabled=enabled,
+        follows_shared=follows_shared,
+        shared_entry_id=shared_id,
+        known_shared_entry_ids=KNOWN,
+        has_own_schedule=has_own,
+    )
+
+
 def test_choice_off_reads_as_none_whatever_the_source_says():
     for follows_shared, shared_id in ((False, None), (True, "werkdag"), (True, None)):
-        assert (
-            schedule_choice_from_state(
-                enabled=False,
-                follows_shared=follows_shared,
-                shared_entry_id=shared_id,
-                known_shared_entry_ids=KNOWN,
+        for has_own in (False, True):
+            assert (
+                _choice(
+                    enabled=False,
+                    follows_shared=follows_shared,
+                    shared_id=shared_id,
+                    has_own=has_own,
+                )
+                == SCHEDULE_CHOICE_NONE
             )
-            == SCHEDULE_CHOICE_NONE
-        )
 
 
-def test_choice_enabled_own_reads_as_own():
-    assert (
-        schedule_choice_from_state(
-            enabled=True,
-            follows_shared=False,
-            shared_entry_id=None,
-            known_shared_entry_ids=KNOWN,
-        )
-        == SCHEDULE_CHOICE_OWN
-    )
+def test_choice_enabled_own_with_a_stored_schedule_reads_as_own():
+    assert _choice(enabled=True, follows_shared=False, has_own=True) == SCHEDULE_CHOICE_OWN
+
+
+def test_choice_enabled_own_with_nothing_stored_reads_as_none():
+    # A room on its own source with no schedule of its own runs nothing, and
+    # there is no "own" entry to offer for it - so the dropdown says "none".
+    assert _choice(enabled=True, follows_shared=False, has_own=False) == SCHEDULE_CHOICE_NONE
 
 
 def test_choice_enabled_following_known_schedule_reads_as_its_entry_id():
-    assert (
-        schedule_choice_from_state(
-            enabled=True,
-            follows_shared=True,
-            shared_entry_id="werkdag",
-            known_shared_entry_ids=KNOWN,
+    for has_own in (False, True):
+        assert (
+            _choice(enabled=True, follows_shared=True, shared_id="werkdag", has_own=has_own)
+            == "werkdag"
         )
-        == "werkdag"
-    )
 
 
 def test_choice_following_a_missing_or_unpicked_schedule_reads_as_none():
@@ -481,12 +486,7 @@ def test_choice_following_a_missing_or_unpicked_schedule_reads_as_none():
     # must not pretend otherwise.
     for shared_id in ("gone", None, ""):
         assert (
-            schedule_choice_from_state(
-                enabled=True,
-                follows_shared=True,
-                shared_entry_id=shared_id,
-                known_shared_entry_ids=KNOWN,
-            )
+            _choice(enabled=True, follows_shared=True, shared_id=shared_id, has_own=True)
             == SCHEDULE_CHOICE_NONE
         )
 
@@ -501,11 +501,11 @@ def test_choice_round_trips_through_state():
     for choice in (SCHEDULE_CHOICE_NONE, SCHEDULE_CHOICE_OWN, "werkdag", "weekend"):
         enabled, shared_id = schedule_state_from_choice(choice)
         assert (
-            schedule_choice_from_state(
+            _choice(
                 enabled=enabled,
                 follows_shared=shared_id is not None,
-                shared_entry_id=shared_id,
-                known_shared_entry_ids=KNOWN,
+                shared_id=shared_id,
+                has_own=True,
             )
             == choice
         )
