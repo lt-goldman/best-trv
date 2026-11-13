@@ -19,6 +19,8 @@ from controller import (  # noqa: E402
     ChangeoverDebouncer,
     CommandQueue,
     HvacAction,
+    SCHEDULE_CHOICE_NONE,
+    SCHEDULE_CHOICE_OWN,
     ScheduleSlot,
     SystemWaterMode,
     compute_sensor_feed_temperature,
@@ -28,6 +30,8 @@ from controller import (  # noqa: E402
     parse_time_string,
     resolve_effective_schedule_raw,
     round_to_step,
+    schedule_choice_from_state,
+    schedule_state_from_choice,
     should_push_feed_temperature,
 )
 
@@ -427,3 +431,81 @@ def test_command_queue_tracks_multiple_keys_independently():
     assert queue.pending_count() == 2
     assert not queue.should_attempt("a", 1, now=1)
     assert queue.should_attempt("b", 2, now=1)  # "b" never failed - still fresh
+
+
+# -- schedule_choice_from_state / schedule_state_from_choice ----------------
+
+KNOWN = {"werkdag", "weekend"}
+
+
+def test_choice_off_reads_as_none_whatever_the_source_says():
+    for follows_shared, shared_id in ((False, None), (True, "werkdag"), (True, None)):
+        assert (
+            schedule_choice_from_state(
+                enabled=False,
+                follows_shared=follows_shared,
+                shared_entry_id=shared_id,
+                known_shared_entry_ids=KNOWN,
+            )
+            == SCHEDULE_CHOICE_NONE
+        )
+
+
+def test_choice_enabled_own_reads_as_own():
+    assert (
+        schedule_choice_from_state(
+            enabled=True,
+            follows_shared=False,
+            shared_entry_id=None,
+            known_shared_entry_ids=KNOWN,
+        )
+        == SCHEDULE_CHOICE_OWN
+    )
+
+
+def test_choice_enabled_following_known_schedule_reads_as_its_entry_id():
+    assert (
+        schedule_choice_from_state(
+            enabled=True,
+            follows_shared=True,
+            shared_entry_id="werkdag",
+            known_shared_entry_ids=KNOWN,
+        )
+        == "werkdag"
+    )
+
+
+def test_choice_following_a_missing_or_unpicked_schedule_reads_as_none():
+    # Deleted target, and the "source says shared but nothing was picked"
+    # case: the control loop treats both as "no schedule", so the dropdown
+    # must not pretend otherwise.
+    for shared_id in ("gone", None, ""):
+        assert (
+            schedule_choice_from_state(
+                enabled=True,
+                follows_shared=True,
+                shared_entry_id=shared_id,
+                known_shared_entry_ids=KNOWN,
+            )
+            == SCHEDULE_CHOICE_NONE
+        )
+
+
+def test_state_from_choice_covers_none_own_and_a_shared_schedule():
+    assert schedule_state_from_choice(SCHEDULE_CHOICE_NONE) == (False, None)
+    assert schedule_state_from_choice(SCHEDULE_CHOICE_OWN) == (True, None)
+    assert schedule_state_from_choice("werkdag") == (True, "werkdag")
+
+
+def test_choice_round_trips_through_state():
+    for choice in (SCHEDULE_CHOICE_NONE, SCHEDULE_CHOICE_OWN, "werkdag", "weekend"):
+        enabled, shared_id = schedule_state_from_choice(choice)
+        assert (
+            schedule_choice_from_state(
+                enabled=enabled,
+                follows_shared=shared_id is not None,
+                shared_entry_id=shared_id,
+                known_shared_entry_ids=KNOWN,
+            )
+            == choice
+        )

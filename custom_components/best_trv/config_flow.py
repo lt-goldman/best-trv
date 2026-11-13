@@ -28,6 +28,7 @@ from .const import (
     CONF_MIN_DELTA,
     CONF_ROOM_SENSOR,
     CONF_SCHEDULE,
+    CONF_SCHEDULE_CHOICE,
     CONF_SCHEDULE_ENABLED,
     CONF_SCHEDULE_SOURCE,
     CONF_SCHEDULE_TEMPLATE_ENTRY_ID,
@@ -48,7 +49,6 @@ from .const import (
     DEFAULT_HEAT_STEP,
     DEFAULT_MIN_DELTA,
     DEFAULT_SCHEDULE_ENABLED,
-    DEFAULT_SCHEDULE_SOURCE,
     DEFAULT_SUSPEND_ACTIVE_VALUE,
     DEFAULT_SUSPEND_SENSOR,
     DOMAIN,
@@ -57,38 +57,49 @@ from .const import (
     SCHEDULE_SOURCE_OWN,
     SCHEDULE_SOURCE_TEMPLATE,
 )
+from .controller import (
+    SCHEDULE_CHOICE_NONE,
+    SCHEDULE_CHOICE_OWN,
+    schedule_choice_from_state,
+    schedule_state_from_choice,
+)
 
 _LOGGER = logging.getLogger(__name__)
 
-# Sentinel option value for "no parent" / "own schedule, no template" in
-# the hand-built SelectSelectors below. Unlike EntitySelector (see the
-# suspend-sensor field further down), SelectSelector validates against
-# vol.In(options) - since we build that options list ourselves, we can
-# just make blank an explicit, always-first, visible choice instead of
-# needing the suggested_value dance. Converted back to "key absent" (not
-# stored as "") on submit, to match how every other absent-pointer read
-# in this integration already works (.get(key) returning None).
+# Sentinel option value for "no parent" in the hand-built SelectSelectors
+# below. Unlike EntitySelector (see the suspend-sensor field further down),
+# SelectSelector validates against vol.In(options) - since we build that
+# options list ourselves, we can just make "None" an explicit, always-first,
+# visible choice instead of needing the suggested_value dance. Converted
+# back to "key absent" (not stored as "none") on submit, to match how every
+# other absent-pointer read in this integration already works (.get(key)
+# returning None).
 #
-# Its label is a language-neutral "-" rather than text: unlike the plain
-# heat/cool/timing fields, this selector mixes one static sentinel option
-# with N dynamically-named template options in the same list, and
-# SelectSelector's per-option translation_key lookup only covers a
-# uniformly-static options list - it can't translate options we generate
-# per installation. The *meaning* of "-" is explained instead through each
-# step's normal, fully translatable data_description (see strings.json),
-# consistent with how every other field in this integration is localized.
-_NO_PARENT = ""
-_NO_PARENT_LABEL = "-"
+# The list mixes this one static option with N dynamically-named schedule
+# options (one per schedule the user created), so the options are explicit
+# {value, label} dicts. The static ones additionally get a translation_key:
+# the frontend overrides an option's label with
+# selector.<translation_key>.options.<value> when such a translation exists,
+# and keeps the label we passed otherwise - which is exactly what the
+# per-installation schedule names need. The English label below is only the
+# fallback for a frontend that doesn't translate.
+_NO_PARENT = "none"
+_NO_PARENT_LABEL = "None"
+_PARENT_TRANSLATION_KEY = "schedule_parent"
+_CHOICE_TRANSLATION_KEY = "schedule_choice"
 
 
 def _template_entries(hass: HomeAssistant, *, exclude_entry_id: str | None = None):
-    """Every other best_trv entry that is itself a schedule template."""
-    return [
-        entry
-        for entry in hass.config_entries.async_entries(DOMAIN)
-        if entry.data.get(CONF_ENTRY_TYPE) == ENTRY_TYPE_TEMPLATE
-        and entry.entry_id != exclude_entry_id
-    ]
+    """Every other best_trv entry that is itself a schedule (by name, so pickers are stable)."""
+    return sorted(
+        (
+            entry
+            for entry in hass.config_entries.async_entries(DOMAIN)
+            if entry.data.get(CONF_ENTRY_TYPE) == ENTRY_TYPE_TEMPLATE
+            and entry.entry_id != exclude_entry_id
+        ),
+        key=lambda entry: entry.title.casefold(),
+    )
 
 
 def _template_select_options(
@@ -101,6 +112,18 @@ def _template_select_options(
         # title is the one field guaranteed current after a rename.
         {"value": entry.entry_id, "label": entry.title}
         for entry in _template_entries(hass, exclude_entry_id=exclude_entry_id)
+    )
+    return options
+
+
+def _schedule_choice_options(hass: HomeAssistant) -> list[dict[str, str]]:
+    """The room's single schedule dropdown: off, own, then every shared schedule."""
+    options = [
+        {"value": SCHEDULE_CHOICE_NONE, "label": "No schedule"},
+        {"value": SCHEDULE_CHOICE_OWN, "label": "This room only"},
+    ]
+    options.extend(
+        {"value": entry.entry_id, "label": entry.title} for entry in _template_entries(hass)
     )
     return options
 
@@ -305,7 +328,10 @@ class BestTRVConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
             schema_dict[
                 vol.Optional(CONF_TEMPLATE_PARENT_ENTRY_ID, default=_NO_PARENT)
             ] = selector.SelectSelector(
-                selector.SelectSelectorConfig(options=_template_select_options(self.hass))
+                selector.SelectSelectorConfig(
+                    options=_template_select_options(self.hass),
+                    translation_key=_PARENT_TRANSLATION_KEY,
+                )
             )
         return self.async_show_form(step_id="template", data_schema=vol.Schema(schema_dict))
 
@@ -320,11 +346,11 @@ class BestTRVConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
 
 
 class BestTRVOptionsFlow(config_entries.OptionsFlow):
-    """Tune tolerances/timing, and the schedule on/off switch, after setup.
+    """Tune tolerances/timing, and pick the room's schedule, after setup.
 
     A menu rather than one giant form: "Tuning" holds the heat/cool/timing
-    fields (plus the stand-down sensor), "Schedule on/off" is a single
-    toggle. The weekly schedule itself is no longer edited here - the
+    fields (plus the stand-down sensor), "Schedule" is a single dropdown
+    (no schedule / this room only / a shared schedule). The weekly schedule itself is no longer edited here - the
     dashboard card (custom_components/best_trv/www/) is the one editing
     surface for it now, both reading and writing the exact same `schedule`
     config-entry key this options flow used to expose as one form per
@@ -342,7 +368,7 @@ class BestTRVOptionsFlow(config_entries.OptionsFlow):
     async def async_step_init(self, user_input: dict[str, Any] | None = None) -> FlowResult:
         return self.async_show_menu(
             step_id="init",
-            menu_options=["tuning", "schedule_toggle", "schedule_source"],
+            menu_options=["tuning", "schedule"],
         )
 
     async def async_step_tuning(self, user_input: dict[str, Any] | None = None) -> FlowResult:
@@ -409,65 +435,50 @@ class BestTRVOptionsFlow(config_entries.OptionsFlow):
         )
         return self.async_show_form(step_id="tuning", data_schema=schema)
 
-    async def async_step_schedule_toggle(
+    async def async_step_schedule(
         self, user_input: dict[str, Any] | None = None
     ) -> FlowResult:
-        current = self._current_options()
-        if user_input is not None:
-            return self.async_create_entry(title="", data={**current, **user_input})
+        """One choice: no schedule, this room's own, or a shared schedule.
 
-        schema = vol.Schema(
-            {
-                vol.Required(
-                    CONF_SCHEDULE_ENABLED,
-                    default=current.get(CONF_SCHEDULE_ENABLED, DEFAULT_SCHEDULE_ENABLED),
-                ): bool
-            }
-        )
-        return self.async_show_form(step_id="schedule_toggle", data_schema=schema)
-
-    async def async_step_schedule_source(
-        self, user_input: dict[str, Any] | None = None
-    ) -> FlowResult:
-        """Own schedule (default, unchanged) vs. following a template.
-
-        `CONF_SCHEDULE_TEMPLATE_ENTRY_ID`'s sentinel/blank handling is the
-        same as the template-creation step's parent picker - see `_NO_PARENT`.
-        Picking "template" but leaving this at "-" isn't rejected here: the
-        control loop (climate.py `_resolve_schedule_raw`) already falls
-        back to "no schedule" for a missing target, exactly like a room
-        with an empty schedule of its own does today.
+        The room still stores three keys (enabled, source, followed
+        schedule's entry id) - see controller.schedule_choice_from_state /
+        schedule_state_from_choice for the mapping - but nobody should have
+        to think in those. Picking anything but "No schedule" also switches
+        the schedule on, so there is no separate on/off step to forget.
         """
         current = self._current_options()
+        shared_ids = {entry.entry_id for entry in _template_entries(self.hass)}
         if user_input is not None:
-            template_entry_id = user_input.get(CONF_SCHEDULE_TEMPLATE_ENTRY_ID, _NO_PARENT)
-            new_options = {**current, CONF_SCHEDULE_SOURCE: user_input[CONF_SCHEDULE_SOURCE]}
-            if template_entry_id == _NO_PARENT:
+            enabled, shared_entry_id = schedule_state_from_choice(
+                user_input[CONF_SCHEDULE_CHOICE]
+            )
+            new_options = {**current, CONF_SCHEDULE_ENABLED: enabled}
+            if shared_entry_id is None:
+                new_options[CONF_SCHEDULE_SOURCE] = SCHEDULE_SOURCE_OWN
                 new_options.pop(CONF_SCHEDULE_TEMPLATE_ENTRY_ID, None)
             else:
-                new_options[CONF_SCHEDULE_TEMPLATE_ENTRY_ID] = template_entry_id
+                new_options[CONF_SCHEDULE_SOURCE] = SCHEDULE_SOURCE_TEMPLATE
+                new_options[CONF_SCHEDULE_TEMPLATE_ENTRY_ID] = shared_entry_id
             return self.async_create_entry(title="", data=new_options)
 
+        default_choice = schedule_choice_from_state(
+            enabled=current.get(CONF_SCHEDULE_ENABLED, DEFAULT_SCHEDULE_ENABLED),
+            follows_shared=current.get(CONF_SCHEDULE_SOURCE, SCHEDULE_SOURCE_OWN)
+            == SCHEDULE_SOURCE_TEMPLATE,
+            shared_entry_id=current.get(CONF_SCHEDULE_TEMPLATE_ENTRY_ID),
+            known_shared_entry_ids=shared_ids,
+        )
         schema = vol.Schema(
             {
-                vol.Required(
-                    CONF_SCHEDULE_SOURCE,
-                    default=current.get(CONF_SCHEDULE_SOURCE, DEFAULT_SCHEDULE_SOURCE),
-                ): selector.SelectSelector(
+                vol.Required(CONF_SCHEDULE_CHOICE, default=default_choice): selector.SelectSelector(
                     selector.SelectSelectorConfig(
-                        options=[SCHEDULE_SOURCE_OWN, SCHEDULE_SOURCE_TEMPLATE],
-                        translation_key="schedule_source",
+                        options=_schedule_choice_options(self.hass),
+                        translation_key=_CHOICE_TRANSLATION_KEY,
                     )
-                ),
-                vol.Optional(
-                    CONF_SCHEDULE_TEMPLATE_ENTRY_ID,
-                    default=current.get(CONF_SCHEDULE_TEMPLATE_ENTRY_ID, _NO_PARENT),
-                ): selector.SelectSelector(
-                    selector.SelectSelectorConfig(options=_template_select_options(self.hass))
-                ),
+                )
             }
         )
-        return self.async_show_form(step_id="schedule_source", data_schema=schema)
+        return self.async_show_form(step_id="schedule", data_schema=schema)
 
 
 class BestTRVTemplateOptionsFlow(config_entries.OptionsFlow):
@@ -537,7 +548,8 @@ class BestTRVTemplateOptionsFlow(config_entries.OptionsFlow):
                     selector.SelectSelectorConfig(
                         options=_template_select_options(
                             self.hass, exclude_entry_id=self._config_entry.entry_id
-                        )
+                        ),
+                        translation_key=_PARENT_TRANSLATION_KEY,
                     )
                 ),
             }

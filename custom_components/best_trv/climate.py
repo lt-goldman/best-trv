@@ -561,8 +561,9 @@ class BestTRV(ClimateEntity, RestoreEntity):
             # offer inline editing for a room in this mode; this only
             # matters for a direct service call.
             raise HomeAssistantError(
-                "This room follows a schedule template - edit the template "
-                "itself, or switch this room back to its own schedule first."
+                "This room follows a shared schedule - edit that schedule "
+                'itself, or choose "This room only" under Configure -> '
+                "Schedule first."
             )
         raw_schedule = dict(self._schedule_raw)
         for day, slots in updates.items():

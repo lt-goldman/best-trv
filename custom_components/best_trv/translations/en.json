@@ -4,8 +4,8 @@
       "user": {
         "title": "Best TRV: new entry",
         "menu_options": {
-          "room": "New room",
-          "template": "New schedule template"
+          "room": "Room",
+          "template": "Schedule"
         }
       },
       "room": {
@@ -31,14 +31,14 @@
         "data": {}
       },
       "template": {
-        "title": "Best TRV: new schedule template",
-        "description": "A named, shareable weekly schedule - no TRVs involved. Edit its actual time/temperature slots later, with the same dashboard card used for a room's own schedule, pointed at this template's entity. Point one or more rooms at it via Configure → Schedule source.",
+        "title": "Best TRV: new schedule",
+        "description": "A named weekly schedule that any number of rooms can follow. Fill in its times and temperatures afterwards with the dashboard card, pointed at this schedule's entity. Link a room to it under Configure → Schedule.",
         "data": {
-          "name": "Template name",
-          "template_parent_entry_id": "Parent template (optional)"
+          "name": "Schedule name",
+          "template_parent_entry_id": "Based on (optional)"
         },
         "data_description": {
-          "template_parent_entry_id": "Inherit whatever days this template doesn't itself override from another template. Choose \"-\" for a root template with no parent."
+          "template_parent_entry_id": "Days you leave empty come from the schedule this one is based on. Choose \"None\" if this schedule doesn't build on another one."
         }
       }
     },
@@ -55,8 +55,7 @@
         "title": "Best TRV: configure",
         "menu_options": {
           "tuning": "Tuning",
-          "schedule_toggle": "Schedule on/off",
-          "schedule_source": "Schedule source"
+          "schedule": "Schedule"
         }
       },
       "tuning": {
@@ -80,44 +79,41 @@
           "suspend_active_value": "The state value(s) above that mean Best TRV should turn this room's TRV(s) off rather than fight whatever else is active. Comma-separated if there's more than one (e.g. a climate entity's own heat,cool,heat_cool,dry modes)."
         }
       },
-      "schedule_toggle": {
-        "title": "Best TRV: schedule on/off",
-        "description": "When on, the schedule sets the target temperature automatically at each configured time. Adjusting the temperature by hand between two scheduled times is not overwritten until the next scheduled change.",
+      "schedule": {
+        "title": "Best TRV: schedule",
+        "description": "Choose which schedule this room follows. Picking a schedule switches it on; \"No schedule\" switches it off. \"This room only\" uses a schedule just for this room, edited on its own card. Changing a shared schedule changes every room that follows it, and a room that follows one can't override a single day.",
         "data": {
-          "schedule_enabled": "Schedule enabled"
-        }
-      },
-      "schedule_source": {
-        "title": "Best TRV: schedule source",
-        "description": "Keep this room's own schedule (edited on its own card), or follow a shared template instead - editing the template then changes every room that follows it. A room following a template can't also locally override a day; switch back to \"own\" first if you need that.",
-        "data": {
-          "schedule_source": "Schedule source",
-          "schedule_template_entry_id": "Template to follow"
+          "schedule_choice": "Schedule for this room"
         },
         "data_description": {
-          "schedule_template_entry_id": "Only used when schedule source is \"template\" above. Choose \"-\" if you haven't created a template yet - this room simply won't auto-schedule until you do."
+          "schedule_choice": "Create shared schedules first with Add entry → Schedule; they then appear in this list."
         }
       },
       "template_settings": {
-        "title": "Best TRV: schedule template",
+        "title": "Best TRV: schedule",
         "data": {
-          "name": "Template name",
-          "template_parent_entry_id": "Parent template (optional)"
+          "name": "Schedule name",
+          "template_parent_entry_id": "Based on (optional)"
         },
         "data_description": {
-          "template_parent_entry_id": "Inherit whatever days this template doesn't itself override from another template. Choose \"-\" for a root template with no parent."
+          "template_parent_entry_id": "Days you leave empty come from the schedule this one is based on. Choose \"None\" if this schedule doesn't build on another one."
         }
       }
     },
     "error": {
-      "template_parent_cycle": "That would make this template its own ancestor - choose a different parent."
+      "template_parent_cycle": "That would make this schedule its own ancestor. Choose a different schedule under \"Based on\"."
     }
   },
   "selector": {
-    "schedule_source": {
+    "schedule_choice": {
       "options": {
-        "own": "This room's own schedule",
-        "template": "Follow a shared template"
+        "none": "No schedule",
+        "own": "This room only"
+      }
+    },
+    "schedule_parent": {
+      "options": {
+        "none": "None"
       }
     }
   },
@@ -165,8 +161,8 @@
       }
     },
     "set_template_day": {
-      "name": "Set template day",
-      "description": "Replace one weekday's schedule slots on a schedule template. Used by the Best TRV schedule card when pointed at a template entity - see set_schedule_day for the equivalent on a room.",
+      "name": "Set shared schedule day",
+      "description": "Replace one weekday's slots on a shared schedule. Used by the Best TRV schedule card when it is pointed at a schedule entity; see Set schedule day for the equivalent on a room.",
       "fields": {
         "day": {
           "name": "Day",
@@ -179,8 +175,8 @@
       }
     },
     "set_template_days": {
-      "name": "Set template days",
-      "description": "Apply the same schedule slots to several weekdays on a schedule template at once, in a single atomic write. Used by the Best TRV schedule card's \"push to other days\" action on a template entity.",
+      "name": "Set shared schedule days",
+      "description": "Apply the same slots to several weekdays of a shared schedule at once, in a single atomic write. Used by the schedule card's \"push to other days\" action on a schedule entity.",
       "fields": {
         "days": {
           "name": "Days",

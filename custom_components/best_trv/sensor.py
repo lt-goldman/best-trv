@@ -82,7 +82,7 @@ class BestTrvScheduleTemplate(SensorEntity):
             identifiers={(DOMAIN, entry.entry_id)},
             name=entry.title,
             manufacturer="Best TRV",
-            model="Schedule template",
+            model="Schedule",
         )
         # Same raw/parsed split rationale as BestTRV in climate.py: this is
         # the one source both the card's "schedule" attribute and any

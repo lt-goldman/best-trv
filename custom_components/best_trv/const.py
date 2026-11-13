@@ -75,6 +75,11 @@ SCHEDULE_SOURCE_OWN = "own"
 SCHEDULE_SOURCE_TEMPLATE = "template"
 CONF_SCHEDULE_TEMPLATE_ENTRY_ID = "schedule_template_entry_id"
 
+# The one dropdown in a room's Configure -> Schedule step. A form field only,
+# never stored: submitting it is translated into the three stored keys above
+# (see controller.schedule_state_from_choice and config_flow.py).
+CONF_SCHEDULE_CHOICE = "schedule_choice"
+
 # -- defaults -----------------------------------------------------------
 
 # Matches the physical Aqara E1's own reported range (climate.thermo_*

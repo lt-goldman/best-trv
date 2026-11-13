@@ -12,7 +12,7 @@ import time
 from dataclasses import dataclass, field
 from datetime import datetime, time as time_of_day, timedelta
 from enum import Enum
-from typing import Any, Hashable
+from typing import Any, Collection, Hashable
 
 # Monday=0 .. Sunday=6, matching `date.weekday()` - this order is load-bearing
 # for the lookback in get_active_schedule_slot, not just a display choice.
@@ -253,6 +253,55 @@ def resolve_effective_schedule_raw(
                 resolved[day_key] = raw[day_key]
                 break
     return resolved
+
+
+# The single "which schedule does this room follow?" choice offered in a
+# room's Configure -> Schedule step. Everything else the dropdown can hold is
+# the entry id of a shared schedule - those can never collide with these two
+# tokens, because HA entry ids are 26-character ULIDs.
+SCHEDULE_CHOICE_NONE = "none"
+SCHEDULE_CHOICE_OWN = "own"
+
+
+def schedule_choice_from_state(
+    *,
+    enabled: bool,
+    follows_shared: bool,
+    shared_entry_id: str | None,
+    known_shared_entry_ids: Collection[str],
+) -> str:
+    """Collapse a room's three stored schedule fields into the one dropdown value.
+
+    The room stores `enabled`, a source ("own" vs. a shared schedule) and the
+    followed schedule's entry id as three separate keys; the user thinks of it
+    as one choice. Switched off always reads as "none", whatever the other two
+    say. A room pointing at a shared schedule that no longer exists (or that
+    never got picked) also reads as "none": the control loop already treats
+    that as "no schedule" (see climate.py `_resolve_schedule_raw`), so the
+    dropdown shows what the room actually does.
+    """
+    if not enabled:
+        return SCHEDULE_CHOICE_NONE
+    if not follows_shared:
+        return SCHEDULE_CHOICE_OWN
+    if shared_entry_id and shared_entry_id in known_shared_entry_ids:
+        return shared_entry_id
+    return SCHEDULE_CHOICE_NONE
+
+
+def schedule_state_from_choice(choice: str) -> tuple[bool, str | None]:
+    """Inverse of `schedule_choice_from_state`: `(enabled, shared_entry_id)`.
+
+    `shared_entry_id` is None for "none" and "own" - for "none" on purpose:
+    the room goes back to its own (kept, just inactive) schedule instead of
+    staying pointed at a shared one it is no longer using, so the card never
+    shows "follows X" for a room that is switched off.
+    """
+    if choice == SCHEDULE_CHOICE_NONE:
+        return False, None
+    if choice == SCHEDULE_CHOICE_OWN:
+        return True, None
+    return True, choice
 
 
 def should_push_feed_temperature(

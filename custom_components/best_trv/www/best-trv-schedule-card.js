@@ -47,8 +47,8 @@
       temperature: "Temperature",
       chooseDay: "Choose a day",
       carriesOver: "Carries over",
-      followsTemplate: "Follows template",
-      readOnlyTemplate: "Edit the template itself to change this.",
+      follows: "Follows",
+      readOnlyShared: "Edit that schedule itself to change this.",
     },
     nl: {
       days: { mon: "Maandag", tue: "Dinsdag", wed: "Woensdag", thu: "Donderdag", fri: "Vrijdag", sat: "Zaterdag", sun: "Zondag" },
@@ -63,8 +63,8 @@
       temperature: "Temperatuur",
       chooseDay: "Kies een dag",
       carriesOver: "Loopt door vanaf",
-      followsTemplate: "Volgt sjabloon",
-      readOnlyTemplate: "Bewerk het sjabloon zelf om dit te wijzigen.",
+      follows: "Volgt",
+      readOnlyShared: "Bewerk dat schema zelf om dit te wijzigen.",
     },
   };
 
@@ -131,7 +131,7 @@
 
     setConfig(config) {
       if (!config || !config.entity) {
-        throw new Error("Please define a Best TRV room or schedule template entity");
+        throw new Error("Please define a Best TRV room or schedule entity");
       }
       this._config = config;
       this._openDay = null; // which day's detail (bar + panel) is expanded
@@ -258,7 +258,7 @@
         right.style.cssText = "display:flex;align-items:center;gap:10px;";
         if (this._isReadOnly()) {
           const indicator = document.createElement("div");
-          indicator.textContent = t.followsTemplate + ": " + (attrs.schedule_template_name || "?");
+          indicator.textContent = t.follows + ": " + (attrs.schedule_template_name || "?");
           indicator.style.cssText = "font-size:12px;color:var(--secondary-text-color);text-align:right;";
           right.appendChild(indicator);
         }
@@ -474,7 +474,7 @@
 
       if (this._isReadOnly()) {
         const hint = document.createElement("div");
-        hint.textContent = t.readOnlyTemplate;
+        hint.textContent = t.readOnlyShared;
         hint.style.cssText = "font-size:12px;color:var(--secondary-text-color);font-style:italic;";
         panel.appendChild(hint);
         return panel;
