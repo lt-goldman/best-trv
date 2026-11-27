@@ -27,12 +27,12 @@ class TRVAdapter(ABC):
     def feed_temperature_step(self) -> float:
         """Smallest increment this TRV's temperature-feed input resolves to.
 
-        Confirmed on the real Aqara E1 installation: its
-        `external_temperature_input` number entity reports `step: 1` - it
-        only resolves whole degrees. Sending finer deltas is not wrong, but
-        it's a wasted Zigbee write since the device (or Z2M) rounds it away
-        again; the control loop rounds to this step before deciding whether
-        a push is even worth sending.
+        The control loop rounds to this step before deciding whether a push
+        is worth a Zigbee write. It must describe what the *device* keeps:
+        too coarse a value silently hides part of the room-to-setpoint gap
+        from the TRV's own controller. Don't assume the matching Home
+        Assistant entity's `step` attribute says so - it may just be HA's
+        default (see const.AQARA_E1_FEED_STEP).
         """
 
     @abstractmethod

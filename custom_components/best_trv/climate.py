@@ -774,13 +774,16 @@ class BestTRV(ClimateEntity, RestoreEntity):
                     min_bound=min_bound,
                     max_bound=max_bound,
                 )
-                # Snap to what the TRV can actually resolve (the real Aqara
-                # E1 only accepts whole degrees) before deciding whether a
-                # push is even worth it - otherwise every sub-step wobble in
-                # the room sensor looks like a "change" worth a Zigbee write.
+                # Snap to what the TRV can actually resolve before deciding
+                # whether a push is even worth it - otherwise every sub-step
+                # wobble in the room sensor looks like a "change" worth a
+                # Zigbee write.
                 feed_value = round_to_step(
                     feed_value, step=step, min_bound=min_bound, max_bound=max_bound
                 )
+                # What the attribute (and the hvac_action estimate) report is
+                # what the TRV actually receives, not the pre-rounding value.
+                self._last_feed_temperature = feed_value
                 last_sent, last_sent_at = self._last_sent.get(climate_entity_id, (None, None))
                 should_push = force or should_push_feed_temperature(
                     last_sent=last_sent,

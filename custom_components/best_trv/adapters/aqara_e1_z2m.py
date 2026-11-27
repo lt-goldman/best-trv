@@ -44,7 +44,7 @@ from homeassistant.const import STATE_UNAVAILABLE, STATE_UNKNOWN
 from homeassistant.core import HomeAssistant
 from homeassistant.exceptions import HomeAssistantError
 
-from ..const import DEFAULT_FEED_MAX, DEFAULT_FEED_MIN, DEFAULT_FEED_STEP
+from ..const import AQARA_E1_FEED_STEP, DEFAULT_FEED_MAX, DEFAULT_FEED_MIN
 
 _LOGGER = logging.getLogger(__name__)
 
@@ -105,13 +105,9 @@ class AqaraE1Z2MAdapter:
 
     @property
     def feed_temperature_step(self) -> float:
-        state = self._hass.states.get(self._number_entity_id)
-        if state is None:
-            return DEFAULT_FEED_STEP
-        try:
-            return float(state.attributes.get("step", DEFAULT_FEED_STEP))
-        except (TypeError, ValueError):
-            return DEFAULT_FEED_STEP
+        # A hardware property, not the entity's `step` attribute - see
+        # AQARA_E1_FEED_STEP for why that attribute is misleading here.
+        return AQARA_E1_FEED_STEP
 
     async def async_ensure_external_sensor_selected(self) -> None:
         """Make sure the TRV is reading `sensor: external`, not its own probe."""

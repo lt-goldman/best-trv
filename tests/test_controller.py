@@ -108,13 +108,19 @@ def test_feed_temperature_is_clamped_to_bounds():
 
 
 # -- round_to_step -----------------------------------------------------------
-# Confirmed on the real Aqara E1 installation: its external_temperature_input
-# number entity reports step=1 (whole degrees only).
 
 
 def test_round_to_step_snaps_to_whole_degree():
     assert round_to_step(20.3, step=1.0, min_bound=0.0, max_bound=55.0) == 20.0
     assert round_to_step(20.6, step=1.0, min_bound=0.0, max_bound=55.0) == 21.0
+
+
+def test_round_to_step_keeps_tenths_without_float_noise():
+    # The Aqara E1 keeps tenths. These exact values must come out clean:
+    # a naive round(value / step) * step yields 20.400000000000002.
+    for value in (20.4, 20.6, 0.3, 21.7):
+        assert round_to_step(value, step=0.1, min_bound=0.0, max_bound=55.0) == value
+    assert round_to_step(20.64, step=0.1, min_bound=0.0, max_bound=55.0) == 20.6
 
 
 def test_round_to_step_respects_finer_steps():

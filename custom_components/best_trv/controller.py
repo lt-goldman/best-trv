@@ -71,15 +71,15 @@ def round_to_step(
 ) -> float:
     """Snap `value` to the TRV's actual resolution before pushing it.
 
-    Confirmed on the real Aqara E1 installation: its
-    `external_temperature_input` number entity reports `step: 1` - sending
-    finer deltas (e.g. 20.3) is not wrong, but it's a wasted Zigbee write
-    the device rounds away anyway. Re-clamps after rounding in case the
-    nearest step lands just outside the bound.
+    Changes finer than the device keeps are not worth a Zigbee write.
+    Re-clamps after rounding in case the nearest step lands just outside the
+    bound.
     """
     if step <= 0:
         return min(max(value, min_bound), max_bound)
-    snapped = round(value / step) * step
+    # The outer round() only removes float noise (206 * 0.1 is not exactly
+    # 20.6), so the value compares and displays cleanly.
+    snapped = round(round(value / step) * step, 3)
     return min(max(snapped, min_bound), max_bound)
 
 

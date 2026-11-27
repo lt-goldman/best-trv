@@ -118,14 +118,18 @@ DEFAULT_ASSUMED_DEADBAND = 0.5
 # How often the control loop re-evaluates, independent of state-change events.
 UPDATE_TICK_SECONDS = 30
 
-# Fallback external_temperature_input bounds/step if a TRV's number entity
-# doesn't (yet) expose min/max/step attributes. Confirmed on the real
-# installation: the Aqara E1's own number entity reports step=1 (whole
-# degrees only) - DEFAULT_FEED_STEP is only used if that attribute is
-# somehow missing, not what actually applies to that hardware.
+# Fallback external_temperature_input bounds if a TRV's number entity
+# doesn't (yet) expose min/max attributes.
 DEFAULT_FEED_MIN = 0.0
 DEFAULT_FEED_MAX = 55.0
-DEFAULT_FEED_STEP = 0.5
+
+# Resolution of the Aqara E1's external temperature input. Deliberately not
+# read from the number entity's `step` attribute: Zigbee2MQTT declares no step
+# for this value, so Home Assistant shows its own default of 1, and rounding
+# to that threw away up to half a degree of the room-to-setpoint gap.
+# Measured on a real SRTS-A01: a pushed 20.4 is reported back as 20.4
+# (Zigbee2MQTT itself transmits hundredths).
+AQARA_E1_FEED_STEP = 0.1
 
 DEFAULT_SCHEDULE_ENABLED = False
 # A day's slots grow one at a time via the "add another slot" toggle in the
